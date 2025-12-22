@@ -1,20 +1,17 @@
 import * as vscode from 'vscode';
-import { DataManager } from './DataManager';
+import { TimeAnalyticsApi } from '../api/time-analytics-api';
 
-export class TimeManager implements vscode.Disposable {
+export class TimeTracker implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
   private debounceTimer: NodeJS.Timeout | undefined;
-
   private fileStates: Map<
     string,
     { startTime: number; state: 'IDLE' | 'TYPING' }
   > = new Map();
+  private lastWindowFocusTime = Date.now();
 
-  private lastWindowFocusTime: number = Date.now();
-
-  constructor(private dataManager: DataManager) {
+  constructor(private readonly api: TimeAnalyticsApi) {
     this.registerListeners();
-
     if (vscode.window.state.focused) {
       this.updateVisibleFiles(vscode.window.visibleTextEditors);
     }
@@ -22,12 +19,10 @@ export class TimeManager implements vscode.Disposable {
 
   public forceFlush() {
     const now = Date.now();
-
     for (const [fsPath, stateData] of this.fileStates) {
       this.flushFile(fsPath, stateData, now);
       stateData.startTime = now;
     }
-
     if (vscode.window.state.focused) {
       this.recordWindowFocus(now);
       this.lastWindowFocusTime = now;
@@ -35,44 +30,36 @@ export class TimeManager implements vscode.Disposable {
   }
 
   public stopTracking(fsPath: string) {
-    if (this.fileStates.has(fsPath)) {
-      this.fileStates.delete(fsPath);
-    }
+    this.fileStates.delete(fsPath);
   }
 
-  public getPendingStats(fsPath: string): { active: number; focus: number } {
+  public getPendingStats(fsPath: string): { active: number; idle: number } {
     const stateData = this.fileStates.get(fsPath);
-    if (!stateData) return { active: 0, focus: 0 };
-
+    if (!stateData) return { active: 0, idle: 0 };
     const now = Date.now();
     const duration = now - stateData.startTime;
-
-    return {
-      active: stateData.state === 'TYPING' ? duration : 0,
-      focus: duration,
-    };
+    return stateData.state === 'TYPING'
+      ? { active: duration, idle: 0 }
+      : { active: 0, idle: duration };
   }
 
   public getTrackedPaths(): string[] {
     return Array.from(this.fileStates.keys());
   }
 
-  public getTotalPendingStats(): { active: number; focus: number } {
-    let totalActive = 0;
-    let totalFocus = 0;
+  public getTotalPendingStats(): { active: number; idle: number } {
     const now = Date.now();
-
+    let active = 0;
+    let idle = 0;
     for (const stateData of this.fileStates.values()) {
       const duration = now - stateData.startTime;
-      totalFocus += duration;
-      if (stateData.state === 'TYPING') {
-        totalActive += duration;
-      }
+      if (stateData.state === 'TYPING') active += duration;
+      else idle += duration;
     }
-    return { active: totalActive, focus: totalFocus };
+    return { active, idle };
   }
 
-  public getPendingProjectFocus(): number {
+  public getPendingProjectIdle(): number {
     if (vscode.window.state.focused) {
       return Date.now() - this.lastWindowFocusTime;
     }
@@ -83,11 +70,9 @@ export class TimeManager implements vscode.Disposable {
     this.disposables.push(
       vscode.workspace.onDidChangeTextDocument((e) => this.onTextChange(e)),
     );
-
     this.disposables.push(
       vscode.window.onDidChangeWindowState((e) => this.onWindowStateChange(e)),
     );
-
     this.disposables.push(
       vscode.window.onDidChangeVisibleTextEditors((editors) =>
         this.onVisibleEditorsChange(editors),
@@ -117,16 +102,13 @@ export class TimeManager implements vscode.Disposable {
     const now = Date.now();
 
     for (const editor of editors) {
-      if (editor.document.uri.scheme === 'file') {
-        const fsPath = editor.document.fileName;
+      if (editor.document.uri.scheme !== 'file') continue;
+      const fsPath = editor.document.fileName;
+      if (fsPath.endsWith('time-analytics.json')) continue;
 
-        if (fsPath.endsWith('time-analytics.json')) continue;
-
-        currentPaths.add(fsPath);
-
-        if (!this.fileStates.has(fsPath)) {
-          this.fileStates.set(fsPath, { startTime: now, state: 'IDLE' });
-        }
+      currentPaths.add(fsPath);
+      if (!this.fileStates.has(fsPath)) {
+        this.fileStates.set(fsPath, { startTime: now, state: 'IDLE' });
       }
     }
 
@@ -158,22 +140,20 @@ export class TimeManager implements vscode.Disposable {
       vscode.workspace.textDocuments.find((d) => d.fileName === fsPath) ||
       ({ uri } as vscode.TextDocument);
 
-    this.dataManager.updateFileFocusTime(doc, duration);
+    const activeDelta = stateData.state === 'TYPING' ? duration : 0;
+    const idleDelta = stateData.state === 'TYPING' ? 0 : duration;
 
-    if (stateData.state === 'TYPING') {
-      this.dataManager.updateDuration(doc, duration);
-    }
+    this.api.addFileDurations(doc, { activeDelta, idleDelta });
   }
 
   private recordWindowFocus(now: number) {
     const duration = now - this.lastWindowFocusTime;
-
     if (
       duration > 0 &&
       vscode.workspace.workspaceFolders &&
       vscode.workspace.workspaceFolders.length > 0
     ) {
-      this.dataManager.updateProjectFocusTime(
+      this.api.addProjectIdle(
         vscode.workspace.workspaceFolders[0].uri,
         duration,
       );

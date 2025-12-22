@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { DataManager } from '../managers/DataManager';
-import { TimeManager } from '../managers/TimeManager';
+import { TimeAnalyticsApi } from '../api/time-analytics-api';
+import { TimeTracker } from '../core/time-tracker';
 import { formatTime } from '../utils/timeUtils';
 
 interface AggregatedStats {
   active: number;
-  focus: number;
   idle: number;
 }
 
@@ -19,13 +18,14 @@ class FileTreeItem extends vscode.TreeItem {
     public readonly isRoot: boolean = false,
   ) {
     super(label, collapsibleState);
+    const focus = stats.active + stats.idle;
     this.description = `(Total: ${formatTime(
-      stats.focus / 1000,
+      focus / 1000,
     )}, Active: ${formatTime(stats.active / 1000)}, Idle: ${formatTime(
       stats.idle / 1000,
     )})`;
     this.tooltip = `${label}\nTotal: ${formatTime(
-      stats.focus / 1000,
+      focus / 1000,
     )}\nActive: ${formatTime(stats.active / 1000)}\nIdle: ${formatTime(
       stats.idle / 1000,
     )}`;
@@ -40,7 +40,7 @@ class FileTreeItem extends vscode.TreeItem {
   }
 }
 
-export class SidebarProvider implements vscode.TreeDataProvider<FileTreeItem> {
+export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<
     FileTreeItem | undefined | null | void
   > = new vscode.EventEmitter<FileTreeItem | undefined | null | void>();
@@ -51,8 +51,8 @@ export class SidebarProvider implements vscode.TreeDataProvider<FileTreeItem> {
   private refreshInterval: NodeJS.Timeout | undefined;
 
   constructor(
-    private dataManager: DataManager,
-    private timeManager: TimeManager,
+    private api: TimeAnalyticsApi,
+    private tracker: TimeTracker,
   ) {}
 
   refresh(): void {
@@ -93,14 +93,14 @@ export class SidebarProvider implements vscode.TreeDataProvider<FileTreeItem> {
     if (!element) {
       const items: FileTreeItem[] = [];
 
-      const globalStats = this.dataManager.getGlobalStats();
-      const pendingTotal = this.timeManager.getTotalPendingStats();
-      const pendingProjectFocus = this.timeManager.getPendingProjectFocus();
+      const globalStats = this.api.getGlobalStats();
+      const pendingTotal = this.tracker.getTotalPendingStats();
+      const pendingProjectIdle = this.tracker.getPendingProjectIdle();
 
-      const totalGlobalActive =
-        globalStats.totalActiveTime + pendingTotal.active;
-      const totalGlobalFocus = globalStats.totalFocusTime + pendingProjectFocus;
-      const totalGlobalIdle = Math.max(0, totalGlobalFocus - totalGlobalActive);
+      const totalGlobalActive = globalStats.active + pendingTotal.active;
+      const totalGlobalIdle =
+        globalStats.idle + pendingTotal.idle + pendingProjectIdle;
+      const totalGlobalFocus = totalGlobalActive + totalGlobalIdle;
 
       items.push(
         new FileTreeItem(
@@ -108,7 +108,6 @@ export class SidebarProvider implements vscode.TreeDataProvider<FileTreeItem> {
           vscode.TreeItemCollapsibleState.None,
           {
             active: totalGlobalActive,
-            focus: totalGlobalFocus,
             idle: totalGlobalIdle,
           },
           undefined,
@@ -136,22 +135,17 @@ export class SidebarProvider implements vscode.TreeDataProvider<FileTreeItem> {
           ),
         );
 
-        const deletedStats = this.dataManager.getDeletedStats(rootUri);
+        const deletedStats = this.api.getDeletedStats(rootUri);
         if (
           deletedStats &&
-          (deletedStats.active > 0 || deletedStats.focus > 0)
+          (deletedStats.active > 0 || deletedStats.idle > 0)
         ) {
-          const deletedIdle = Math.max(
-            0,
-            deletedStats.focus - deletedStats.active,
-          );
           const deletedItem = new FileTreeItem(
             'Deleted Files',
             vscode.TreeItemCollapsibleState.None,
             {
               active: deletedStats.active,
-              focus: deletedStats.focus,
-              idle: deletedIdle,
+              idle: deletedStats.idle,
             },
             undefined,
             false,
@@ -169,7 +163,6 @@ export class SidebarProvider implements vscode.TreeDataProvider<FileTreeItem> {
       vscode.workspace.workspaceFolders.length > 0
     ) {
       const rootUri = vscode.workspace.workspaceFolders[0].uri;
-
       const tree = this.buildWorkspaceTree(rootUri);
 
       let node = tree;
@@ -184,9 +177,6 @@ export class SidebarProvider implements vscode.TreeDataProvider<FileTreeItem> {
       }
 
       if (node) {
-        // If we are at the root of the tree (which corresponds to the workspace folder),
-        // we need to pass the root path.
-        // If we are deeper, we pass the element's path.
         const parentPath = element.resourceUri
           ? element.resourceUri.fsPath
           : rootUri.fsPath;
@@ -198,112 +188,87 @@ export class SidebarProvider implements vscode.TreeDataProvider<FileTreeItem> {
   }
 
   private buildWorkspaceTree(rootUri: vscode.Uri): any {
-    const workspaceData = this.dataManager.getWorkspaceData(rootUri);
-    const tree: any = {
-      _stats: { active: 0, focus: 0, idle: 0 },
-      _children: {},
-    };
-    const rootPath = rootUri.fsPath;
+    const files = this.api.getWorkspaceData(rootUri);
 
-    for (const [relPath, stats] of Object.entries(workspaceData)) {
-      this.addPathToTree(tree, relPath.split('/'), stats.focus, stats.pending);
-    }
+    const tree: any = { _stats: { active: 0, idle: 0 }, children: {} };
 
-    const trackedPaths = this.timeManager.getTrackedPaths();
-    for (const absPath of trackedPaths) {
-      if (absPath.startsWith(rootPath)) {
-        const relPath = path.relative(rootPath, absPath).replace(/\\/g, '/');
-        if (relPath && !relPath.startsWith('..')) {
-          const pending = this.timeManager.getPendingStats(absPath);
-          this.addPathToTree(
-            tree,
-            relPath.split('/'),
-            pending.focus,
-            pending.active,
-          );
+    Object.entries(files).forEach(([filePath, stats]) => {
+      const parts = filePath.split('/');
+      let node = tree;
+
+      parts.forEach((part, index) => {
+        if (!node.children[part]) {
+          node.children[part] = {
+            _stats: { active: 0, idle: 0 },
+            children: {},
+          };
         }
-      }
-    }
+        node = node.children[part];
+
+        const isFile = index === parts.length - 1;
+        node._stats.active += stats.active;
+        node._stats.idle += stats.idle;
+
+        if (isFile) {
+          const pending = this.tracker.getPendingStats(
+            path.join(rootUri.fsPath, filePath),
+          );
+          node._stats.active += pending.active;
+          node._stats.idle += pending.idle;
+        }
+      });
+    });
 
     return tree;
   }
 
-  private addPathToTree(
-    tree: any,
-    parts: string[],
-    focusToAdd: number,
-    activeToAdd: number,
-  ) {
-    let current = tree;
-
-    current._stats.focus += focusToAdd;
-    current._stats.active += activeToAdd;
-    current._stats.idle = Math.max(
-      0,
-      current._stats.focus - current._stats.active,
-    );
-
+  private findNode(node: any, parts: string[]): any {
+    let current = node;
     for (const part of parts) {
-      if (!current._children[part]) {
-        current._children[part] = {
-          _stats: { active: 0, focus: 0, idle: 0 },
-          _children: {},
-        };
-      }
-      current = current._children[part];
-
-      current._stats.focus += focusToAdd;
-      current._stats.active += activeToAdd;
-      current._stats.idle = Math.max(
-        0,
-        current._stats.focus - current._stats.active,
-      );
-    }
-  }
-
-  private findNode(tree: any, parts: string[]) {
-    let current = tree;
-    for (const part of parts) {
-      if (!current._children[part]) return null;
-      current = current._children[part];
+      if (!current.children[part]) return null;
+      current = current.children[part];
     }
     return current;
   }
 
-  private getTreeItemsFromNode(
-    node: any,
-    parentAbsPath: string,
-  ): FileTreeItem[] {
+  private getTreeItemsFromNode(node: any, parentPath: string): FileTreeItem[] {
     const items: FileTreeItem[] = [];
 
-    for (const key of Object.keys(node._children)) {
-      const childNode = node._children[key];
-      const absPath = path.join(parentAbsPath, key);
-      const hasChildren = Object.keys(childNode._children).length > 0;
+    // Direct files
+    for (const [name, child] of Object.entries<any>(node.children)) {
+      const childPath = path.join(parentPath, name);
+      const resourceUri = vscode.Uri.file(childPath);
 
-      items.push(
-        new FileTreeItem(
-          key,
-          hasChildren
-            ? vscode.TreeItemCollapsibleState.Collapsed
-            : vscode.TreeItemCollapsibleState.None,
-          childNode._stats,
-          vscode.Uri.file(absPath),
-          false,
-        ),
-      );
+      if (Object.keys(child.children).length === 0) {
+        items.push(
+          new FileTreeItem(
+            name,
+            vscode.TreeItemCollapsibleState.None,
+            child._stats,
+            resourceUri,
+            false,
+          ),
+        );
+      }
     }
 
-    return items.sort((a, b) => {
-      const aIsFolder =
-        a.collapsibleState !== vscode.TreeItemCollapsibleState.None;
-      const bIsFolder =
-        b.collapsibleState !== vscode.TreeItemCollapsibleState.None;
+    // Folders
+    for (const [name, child] of Object.entries<any>(node.children)) {
+      if (Object.keys(child.children).length > 0) {
+        const childPath = path.join(parentPath, name);
+        const resourceUri = vscode.Uri.file(childPath);
+        items.push(
+          new FileTreeItem(
+            name,
+            vscode.TreeItemCollapsibleState.Collapsed,
+            child._stats,
+            resourceUri,
+            false,
+          ),
+        );
+      }
+    }
 
-      if (aIsFolder && !bIsFolder) return -1;
-      if (!aIsFolder && bIsFolder) return 1;
-
-      return b.stats.focus - a.stats.focus;
-    });
+    return items.sort((a, b) => a.label.localeCompare(b.label));
   }
 }
