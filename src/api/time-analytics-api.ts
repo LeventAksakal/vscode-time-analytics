@@ -7,15 +7,15 @@ import {
 } from '../migrations/migration-runner';
 import { FileVersion } from '../file-versions/version-finder';
 import type {
-  FileFormat_0_1_2,
-  FileEntry_0_1_2,
-  Deleted_0_1_2,
-} from '../file-versions/0.1.2';
+  FileFormat_0_1_3,
+  BucketEntry_0_1_3,
+  Deleted_0_1_3,
+} from '../file-versions/0.1.3';
 
 // Alias the current latest version so we only change one import when bumping schema.
-type LatestFileFormat = FileFormat_0_1_2;
-type LatestFileEntry = FileEntry_0_1_2;
-type LatestDeleted = Deleted_0_1_2;
+type LatestFileFormat = FileFormat_0_1_3;
+type LatestBucketEntry = BucketEntry_0_1_3;
+type LatestDeleted = Deleted_0_1_3;
 
 interface GlobalStats {
   active: number;
@@ -70,9 +70,11 @@ export class TimeAnalyticsApi {
     };
   }
 
-  public getWorkspaceData(uri: vscode.Uri): Record<string, LatestFileEntry> {
+  public getWorkspaceBuckets(
+    uri: vscode.Uri,
+  ): Record<string, LatestBucketEntry> {
     const data = this.readWorkspaceData(uri);
-    return data.files;
+    return data.buckets;
   }
 
   public getDeletedStats(uri: vscode.Uri): LatestDeleted | undefined {
@@ -80,123 +82,103 @@ export class TimeAnalyticsApi {
     return data.deleted;
   }
 
-  public getFileStats(
+  public getDocumentStats(
     document: vscode.TextDocument,
-  ): LatestFileEntry | undefined {
-    const filePath = this.getStoragePath(document.uri);
-    const relative = this.getRelativePath(document.uri);
-    if (!filePath || !relative || !fs.existsSync(filePath)) return undefined;
+  ): LatestBucketEntry | undefined {
+    const context = this.resolveDocumentContext(document.uri);
+    if (!context || !fs.existsSync(context.storagePath)) return undefined;
 
-    const data = this.readFile(filePath);
-    return data.files[relative];
+    const data = this.readFile(context.storagePath);
+    return data.buckets[context.bucketKey];
   }
 
-  public addFileDurations(
-    document: vscode.TextDocument,
+  public addDocumentDurations(
+    filePath: string,
     deltas: { activeDelta: number; idleDelta: number },
   ) {
-    const filePath = this.getStoragePath(document.uri);
-    const relative = this.getRelativePath(document.uri);
-    if (!filePath || !relative) return;
+    const context = this.resolveDocumentContext(vscode.Uri.file(filePath));
+    if (!context) return;
+    if (deltas.activeDelta <= 0 && deltas.idleDelta <= 0) return;
 
-    const data = this.readFile(filePath);
-
-    if (!data.files[relative]) {
-      data.files[relative] = { active: 0, idle: 0 };
-    }
-
-    data.files[relative].active += deltas.activeDelta;
-    data.files[relative].idle += deltas.idleDelta;
-
-    data.project.totalActiveTime += deltas.activeDelta;
-    data.project.totalIdleTime += deltas.idleDelta;
-
-    this.writeFile(filePath, data);
-    this.updateGlobalStats(deltas.activeDelta, deltas.idleDelta);
+    this.addBucketDurations(context, deltas);
   }
 
-  public addProjectIdle(uri: vscode.Uri, idleDelta: number) {
+  public addProjectIdle(workspaceUri: vscode.Uri, idleDelta: number) {
     if (idleDelta <= 0) return;
-    const filePath = this.getStoragePath(uri);
-    if (!filePath) return;
+    const storagePath = this.getStoragePath(workspaceUri);
 
-    const data = this.readFile(filePath);
+    const data = this.readFile(storagePath);
     data.project.totalIdleTime += idleDelta;
-    this.writeFile(filePath, data);
+    this.writeFile(storagePath, data);
     this.updateGlobalStats(0, idleDelta);
   }
 
-  public handleFileRename(oldUri: vscode.Uri, newUri: vscode.Uri) {
-    const filePath = this.getStoragePath(oldUri);
-    if (!filePath || !fs.existsSync(filePath)) return;
+  public handleDocumentRename(oldUri: vscode.Uri, newUri: vscode.Uri) {
+    const oldContext = this.resolveDocumentContext(oldUri);
+    const newContext = this.resolveDocumentContext(newUri);
+    if (!oldContext || !newContext) return;
+    if (oldContext.storagePath !== newContext.storagePath) return;
 
-    const oldRel = this.getRelativePath(oldUri);
-    const newRel = this.getRelativePath(newUri);
-    if (!oldRel || !newRel) return;
-
-    const data = this.readFile(filePath);
+    const data = this.readFile(oldContext.storagePath);
     let modified = false;
 
-    if (data.files[oldRel]) {
-      data.files[newRel] = data.files[oldRel];
-      delete data.files[oldRel];
+    if (data.buckets[oldContext.bucketKey]) {
+      data.buckets[newContext.bucketKey] = data.buckets[oldContext.bucketKey];
+      delete data.buckets[oldContext.bucketKey];
       modified = true;
     }
 
-    const oldPrefix = `${oldRel}/`;
-    const newPrefix = `${newRel}/`;
+    const oldPrefix = `${oldContext.bucketKey}/`;
+    const newPrefix = `${newContext.bucketKey}/`;
 
-    for (const key of Object.keys(data.files)) {
+    for (const key of Object.keys(data.buckets)) {
       if (key.startsWith(oldPrefix)) {
         const newKey = newPrefix + key.substring(oldPrefix.length);
-        data.files[newKey] = data.files[key];
-        delete data.files[key];
+        data.buckets[newKey] = data.buckets[key];
+        delete data.buckets[key];
         modified = true;
       }
     }
 
     if (modified) {
-      this.writeFile(filePath, data);
+      this.writeFile(oldContext.storagePath, data);
     }
   }
 
-  public handleFileDelete(uri: vscode.Uri) {
-    const filePath = this.getStoragePath(uri);
-    if (!filePath || !fs.existsSync(filePath)) return;
+  public handleDocumentDelete(uri: vscode.Uri) {
+    const context = this.resolveDocumentContext(uri);
+    if (!context) return;
 
-    const relPath = this.getRelativePath(uri);
-    if (!relPath) return;
-
-    const data = this.readFile(filePath);
+    const data = this.readFile(context.storagePath);
     let modified = false;
 
     if (!data.deleted) {
       data.deleted = { active: 0, idle: 0 };
     }
 
-    const moveToDeleted = (stats: LatestFileEntry) => {
+    const moveToDeleted = (stats: LatestBucketEntry) => {
       if (!data.deleted) return;
       data.deleted.active += stats.active;
       data.deleted.idle += stats.idle;
     };
 
-    if (data.files[relPath]) {
-      moveToDeleted(data.files[relPath]);
-      delete data.files[relPath];
+    if (data.buckets[context.bucketKey]) {
+      moveToDeleted(data.buckets[context.bucketKey]);
+      delete data.buckets[context.bucketKey];
       modified = true;
     }
 
-    const prefix = `${relPath}/`;
-    for (const key of Object.keys(data.files)) {
+    const prefix = `${context.bucketKey}/`;
+    for (const key of Object.keys(data.buckets)) {
       if (key.startsWith(prefix)) {
-        moveToDeleted(data.files[key]);
-        delete data.files[key];
+        moveToDeleted(data.buckets[key]);
+        delete data.buckets[key];
         modified = true;
       }
     }
 
     if (modified) {
-      this.writeFile(filePath, data);
+      this.writeFile(context.storagePath, data);
     }
   }
 
@@ -224,24 +206,52 @@ export class TimeAnalyticsApi {
     this.context.globalState.update(TimeAnalyticsApi.GLOBAL_STATS_KEY, stats);
   }
 
-  private getStoragePath(uri: vscode.Uri): string | undefined {
-    const folder = vscode.workspace.getWorkspaceFolder(uri);
-    return folder
-      ? path.join(folder.uri.fsPath, '.vscode', 'time-analytics.json')
-      : undefined;
+  private addBucketDurations(
+    context: { storagePath: string; bucketKey: string },
+    deltas: { activeDelta: number; idleDelta: number },
+  ) {
+    const data = this.readFile(context.storagePath);
+
+    if (!data.buckets[context.bucketKey]) {
+      data.buckets[context.bucketKey] = { active: 0, idle: 0 };
+    }
+
+    data.buckets[context.bucketKey].active += deltas.activeDelta;
+    data.buckets[context.bucketKey].idle += deltas.idleDelta;
+
+    data.project.totalActiveTime += deltas.activeDelta;
+    data.project.totalIdleTime += deltas.idleDelta;
+
+    this.writeFile(context.storagePath, data);
+    this.updateGlobalStats(deltas.activeDelta, deltas.idleDelta);
   }
 
-  private getRelativePath(uri: vscode.Uri): string | undefined {
+  private resolveDocumentContext(
+    uri: vscode.Uri,
+  ):
+    | { workspaceUri: vscode.Uri; storagePath: string; bucketKey: string }
+    | undefined {
     const folder = vscode.workspace.getWorkspaceFolder(uri);
-    return folder
-      ? path.relative(folder.uri.fsPath, uri.fsPath).replace(/\\/g, '/')
-      : undefined;
+    if (!folder) return undefined;
+
+    const storagePath = this.getStoragePath(folder.uri);
+    const bucketKey = this.toBucketKey(folder.uri, uri);
+    return { workspaceUri: folder.uri, storagePath, bucketKey };
   }
 
-  private readWorkspaceData(uri: vscode.Uri): LatestFileFormat {
-    const filePath = this.getStoragePath(uri);
-    if (!filePath) return createEmptyLatest();
-    return this.readFile(filePath);
+  private toBucketKey(workspaceUri: vscode.Uri, targetUri: vscode.Uri): string {
+    return path
+      .relative(workspaceUri.fsPath, targetUri.fsPath)
+      .replace(/\\/g, '/');
+  }
+
+  private getStoragePath(workspaceUri: vscode.Uri): string {
+    return path.join(workspaceUri.fsPath, '.vscode', 'time-analytics.json');
+  }
+
+  private readWorkspaceData(workspaceUri: vscode.Uri): LatestFileFormat {
+    const storagePath = this.getStoragePath(workspaceUri);
+    return this.readFile(storagePath);
   }
 
   private readFile(filePath: string): LatestFileFormat {
@@ -262,8 +272,8 @@ export class TimeAnalyticsApi {
     const migrated = migrateToLatest(raw);
     if (
       needsWrite ||
-      migrated.from !== FileVersion.V_0_1_2 ||
-      migrated.to !== FileVersion.V_0_1_2
+      migrated.from !== FileVersion.V_0_1_3 ||
+      migrated.to !== FileVersion.V_0_1_3
     ) {
       this.writeFile(filePath, migrated.data);
     }

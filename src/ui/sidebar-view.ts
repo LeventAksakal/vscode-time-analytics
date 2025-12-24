@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { TimeAnalyticsApi } from '../api/time-analytics-api';
-import { TimeTracker } from '../core/time-tracker';
-import { formatTime } from '../utils/timeUtils';
+import { BucketContext } from '../core/bucket-context';
+import { formatTime } from '../utils/time-utils';
 
 interface AggregatedStats {
   active: number;
@@ -52,16 +52,18 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
 
   constructor(
     private api: TimeAnalyticsApi,
-    private tracker: TimeTracker,
+    private buckets: BucketContext,
   ) {}
 
   refresh(): void {
+    this.buckets.flushNow();
     this._onDidChangeTreeData.fire();
   }
 
   bindView(view: vscode.TreeView<FileTreeItem>) {
     view.onDidChangeVisibility((e) => {
       if (e.visible) {
+        this.refresh();
         this.startAutoRefresh();
       } else {
         this.stopAutoRefresh();
@@ -69,6 +71,7 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
     });
 
     if (view.visible) {
+      this.refresh();
       this.startAutoRefresh();
     }
   }
@@ -94,12 +97,8 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
       const items: FileTreeItem[] = [];
 
       const globalStats = this.api.getGlobalStats();
-      const pendingTotal = this.tracker.getTotalPendingStats();
-      const pendingProjectIdle = this.tracker.getPendingProjectIdle();
-
-      const totalGlobalActive = globalStats.active + pendingTotal.active;
-      const totalGlobalIdle =
-        globalStats.idle + pendingTotal.idle + pendingProjectIdle;
+      const totalGlobalActive = globalStats.active;
+      const totalGlobalIdle = globalStats.idle;
       const totalGlobalFocus = totalGlobalActive + totalGlobalIdle;
 
       items.push(
@@ -125,6 +124,12 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
         const tree = this.buildWorkspaceTree(rootUri);
         const rootStats = tree._stats;
 
+        const deletedStats = this.api.getDeletedStats(rootUri);
+        if (deletedStats) {
+          rootStats.active += deletedStats.active;
+          rootStats.idle += deletedStats.idle;
+        }
+
         items.push(
           new FileTreeItem(
             rootName,
@@ -134,8 +139,6 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
             false,
           ),
         );
-
-        const deletedStats = this.api.getDeletedStats(rootUri);
         if (
           deletedStats &&
           (deletedStats.active > 0 || deletedStats.idle > 0)
@@ -188,13 +191,21 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
   }
 
   private buildWorkspaceTree(rootUri: vscode.Uri): any {
-    const files = this.api.getWorkspaceData(rootUri);
+    const buckets = this.api.getWorkspaceBuckets(rootUri);
 
     const tree: any = { _stats: { active: 0, idle: 0 }, children: {} };
 
-    Object.entries(files).forEach(([filePath, stats]) => {
-      const parts = filePath.split('/');
+    const addToNode = (node: any, stats: AggregatedStats) => {
+      node._stats.active += stats.active;
+      node._stats.idle += stats.idle;
+    };
+
+    Object.entries(buckets).forEach(([bucketPath, stats]) => {
+      const parts = bucketPath.split('/');
       let node = tree;
+
+      // Always aggregate into root for every bucket.
+      addToNode(node, stats);
 
       parts.forEach((part, index) => {
         if (!node.children[part]) {
@@ -205,17 +216,7 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
         }
         node = node.children[part];
 
-        const isFile = index === parts.length - 1;
-        node._stats.active += stats.active;
-        node._stats.idle += stats.idle;
-
-        if (isFile) {
-          const pending = this.tracker.getPendingStats(
-            path.join(rootUri.fsPath, filePath),
-          );
-          node._stats.active += pending.active;
-          node._stats.idle += pending.idle;
-        }
+        addToNode(node, stats);
       });
     });
 

@@ -1,16 +1,12 @@
 import * as vscode from 'vscode';
 import { TimeAnalyticsApi } from '../api/time-analytics-api';
-import { TimeTracker } from '../core/time-tracker';
-import { formatTime } from '../utils/timeUtils';
+import { formatTime } from '../utils/time-utils';
 
 export class StatusBarProvider implements vscode.Disposable {
   private item: vscode.StatusBarItem;
   private timer: NodeJS.Timeout | undefined;
 
-  constructor(
-    private readonly api: TimeAnalyticsApi,
-    private readonly tracker: TimeTracker,
-  ) {
+  constructor(private readonly api: TimeAnalyticsApi) {
     this.item = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
       1000,
@@ -30,11 +26,8 @@ export class StatusBarProvider implements vscode.Disposable {
     }
 
     const projectTotals = this.api.getProjectTotals(workspace.uri);
-    const pending = this.tracker.getTotalPendingStats();
-    const pendingProjectIdle = this.tracker.getPendingProjectIdle();
-
-    const active = projectTotals.active + pending.active;
-    const idle = projectTotals.idle + pending.idle + pendingProjectIdle;
+    const active = projectTotals.active;
+    const idle = projectTotals.idle;
 
     this.item.text = `$(clock) Active ${formatTime(active / 1000)} · Idle ${formatTime(
       idle / 1000,
