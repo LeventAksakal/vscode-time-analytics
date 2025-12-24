@@ -6,16 +6,12 @@ import {
   createEmptyLatest,
 } from '../migrations/migration-runner';
 import { FileVersion } from '../file-versions/version-finder';
-import type {
-  FileFormat_0_1_3,
-  BucketEntry_0_1_3,
-  Deleted_0_1_3,
-} from '../file-versions/0.1.3';
+import type { FileFormat_0_1_4 } from '../file-versions/0.1.4';
 
 // Alias the current latest version so we only change one import when bumping schema.
-type LatestFileFormat = FileFormat_0_1_3;
-type LatestBucketEntry = BucketEntry_0_1_3;
-type LatestDeleted = Deleted_0_1_3;
+type LatestFileFormat = FileFormat_0_1_4;
+type LatestBucketEntry = LatestFileFormat['buckets'][string];
+type LatestDeleted = NonNullable<LatestFileFormat['deleted']>;
 
 interface GlobalStats {
   active: number;
@@ -85,7 +81,7 @@ export class TimeAnalyticsApi {
   public getDocumentStats(
     document: vscode.TextDocument,
   ): LatestBucketEntry | undefined {
-    const context = this.resolveDocumentContext(document.uri);
+    const context = this.resolveDocumentContext(document.uri, null);
     if (!context || !fs.existsSync(context.storagePath)) return undefined;
 
     const data = this.readFile(context.storagePath);
@@ -94,9 +90,13 @@ export class TimeAnalyticsApi {
 
   public addDocumentDurations(
     filePath: string,
+    authIdentity: string | null,
     deltas: { activeDelta: number; idleDelta: number },
   ) {
-    const context = this.resolveDocumentContext(vscode.Uri.file(filePath));
+    const context = this.resolveDocumentContext(
+      vscode.Uri.file(filePath),
+      authIdentity,
+    );
     if (!context) return;
     if (deltas.activeDelta <= 0 && deltas.idleDelta <= 0) return;
 
@@ -114,8 +114,8 @@ export class TimeAnalyticsApi {
   }
 
   public handleDocumentRename(oldUri: vscode.Uri, newUri: vscode.Uri) {
-    const oldContext = this.resolveDocumentContext(oldUri);
-    const newContext = this.resolveDocumentContext(newUri);
+    const oldContext = this.resolveDocumentContext(oldUri, null);
+    const newContext = this.resolveDocumentContext(newUri, null);
     if (!oldContext || !newContext) return;
     if (oldContext.storagePath !== newContext.storagePath) return;
 
@@ -146,7 +146,7 @@ export class TimeAnalyticsApi {
   }
 
   public handleDocumentDelete(uri: vscode.Uri) {
-    const context = this.resolveDocumentContext(uri);
+    const context = this.resolveDocumentContext(uri, null);
     if (!context) return;
 
     const data = this.readFile(context.storagePath);
@@ -228,6 +228,7 @@ export class TimeAnalyticsApi {
 
   private resolveDocumentContext(
     uri: vscode.Uri,
+    authIdentity: string | null,
   ):
     | { workspaceUri: vscode.Uri; storagePath: string; bucketKey: string }
     | undefined {
@@ -235,14 +236,20 @@ export class TimeAnalyticsApi {
     if (!folder) return undefined;
 
     const storagePath = this.getStoragePath(folder.uri);
-    const bucketKey = this.toBucketKey(folder.uri, uri);
+    const bucketKey = this.toBucketKey(folder.uri, uri, authIdentity);
     return { workspaceUri: folder.uri, storagePath, bucketKey };
   }
 
-  private toBucketKey(workspaceUri: vscode.Uri, targetUri: vscode.Uri): string {
-    return path
+  private toBucketKey(
+    workspaceUri: vscode.Uri,
+    targetUri: vscode.Uri,
+    authIdentity: string | null,
+  ): string {
+    const rel = path
       .relative(workspaceUri.fsPath, targetUri.fsPath)
       .replace(/\\/g, '/');
+    const authPart = authIdentity ?? 'null';
+    return `${authPart},${rel}`;
   }
 
   private getStoragePath(workspaceUri: vscode.Uri): string {

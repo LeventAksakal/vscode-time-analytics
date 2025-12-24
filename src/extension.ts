@@ -3,17 +3,23 @@ import { TimeAnalyticsApi } from './api/time-analytics-api';
 import { BucketContext } from './core/bucket-context';
 import { DocumentTracker } from './core/document-tracker';
 import { TypingTracker } from './core/typing-tracker';
+import { AuthTracker } from './core/auth-tracker';
 import { StatusBarProvider } from './ui/statusbar-timer';
 import { SidebarView } from './ui/sidebar-view';
 import { formatTime } from './utils/time-utils';
+import { AuthBadge } from './ui/auth-badge';
 
 export function activate(context: vscode.ExtensionContext) {
   const api = new TimeAnalyticsApi(context);
   const bucketContext = new BucketContext(api);
   const documentTracker = new DocumentTracker(bucketContext);
   const typingTracker = new TypingTracker(bucketContext);
-  const statusBar = new StatusBarProvider(api);
+  const authTracker = new AuthTracker(bucketContext);
+  const statusBar = new StatusBarProvider();
+  const authBadge = new AuthBadge(authTracker);
   const sidebarProvider = new SidebarView(api, bucketContext);
+
+  void authTracker.promptIfSignedOut();
 
   vscode.workspace.workspaceFolders?.forEach((folder) =>
     api.ensureWorkspaceInitialized(folder.uri),
@@ -77,11 +83,25 @@ export function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  const signInCommand = vscode.commands.registerCommand(
+    'timeAnalytics.signIn',
+    async () => {
+      if (authTracker.getUser()) {
+        void vscode.window.showInformationMessage('Already signed in.');
+        return;
+      }
+      await authTracker.promptSignIn();
+    },
+  );
+
   context.subscriptions.push(documentTracker);
   context.subscriptions.push(typingTracker);
   context.subscriptions.push(statusBar);
+  context.subscriptions.push(authTracker);
+  context.subscriptions.push(authBadge);
   context.subscriptions.push(fileStatsCommand);
   context.subscriptions.push(refreshCommand);
+  context.subscriptions.push(signInCommand);
 
   context.subscriptions.push(
     vscode.workspace.onDidRenameFiles(async (e) => {

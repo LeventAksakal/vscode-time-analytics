@@ -6,8 +6,17 @@ export interface FileFormat_0_1_3 {
     totalIdleTime: number;
     totalActiveTime: number;
   };
-  buckets: BucketsMap_0_1_3;
-  deleted?: Deleted_0_1_3;
+  buckets: Record<
+    string,
+    {
+      active: number;
+      idle: number;
+    }
+  >;
+  deleted?: {
+    active: number;
+    idle: number;
+  };
 }
 
 export function is0_1_3(file: unknown): file is FileFormat_0_1_3 {
@@ -31,16 +40,4 @@ export function is0_1_3(file: unknown): file is FileFormat_0_1_3 {
   }
 
   return true;
-}
-
-export interface BucketEntry_0_1_3 {
-  active: number;
-  idle: number;
-}
-
-export type BucketsMap_0_1_3 = Record<string, BucketEntry_0_1_3>;
-
-export interface Deleted_0_1_3 {
-  active: number;
-  idle: number;
 }

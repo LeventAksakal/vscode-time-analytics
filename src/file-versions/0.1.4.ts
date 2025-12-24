@@ -1,12 +1,12 @@
 import { FileVersion } from './version-finder';
 
-export interface FileFormat_0_1_2 {
+export interface FileFormat_0_1_4 {
   version: string;
   project: {
     totalIdleTime: number;
     totalActiveTime: number;
   };
-  files: Record<
+  buckets: Record<
     string,
     {
       active: number;
@@ -19,14 +19,13 @@ export interface FileFormat_0_1_2 {
   };
 }
 
-export function is0_1_2(file: unknown): file is FileFormat_0_1_2 {
+export function is0_1_4(file: unknown): file is FileFormat_0_1_4 {
   if (typeof file !== 'object' || file === null) return false;
 
-  const candidate = file as Partial<FileFormat_0_1_2>;
+  const candidate = file as Partial<FileFormat_0_1_4>;
+  if (candidate.version !== FileVersion.V_0_1_4) return false;
 
-  if (candidate.version !== FileVersion.V_0_1_2) return false;
-
-  const project = candidate.project as FileFormat_0_1_2['project'] | undefined;
+  const project = candidate.project as FileFormat_0_1_4['project'] | undefined;
   if (
     !project ||
     typeof project.totalIdleTime !== 'number' ||
@@ -35,8 +34,9 @@ export function is0_1_2(file: unknown): file is FileFormat_0_1_2 {
     return false;
   }
 
-  if (typeof candidate.files !== 'object' || candidate.files === null)
+  if (typeof candidate.buckets !== 'object' || candidate.buckets === null) {
     return false;
+  }
 
   return true;
 }

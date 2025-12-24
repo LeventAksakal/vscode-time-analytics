@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import { TimeAnalyticsApi } from '../api/time-analytics-api';
+import type { AuthUser } from './auth-tracker';
 
 type Activity = { kind: 'IDLE' } | { kind: 'ACTIVE'; filePath: string };
 
 interface ContextState {
   inFocusFiles: Set<string>;
   activity: Activity;
+  authUser: AuthUser | null;
   lastTs: number | null;
 }
 
@@ -13,6 +15,7 @@ export class BucketContext implements vscode.Disposable {
   private state: ContextState = {
     inFocusFiles: new Set(),
     activity: { kind: 'IDLE' },
+    authUser: null,
     lastTs: null,
   };
 
@@ -30,6 +33,9 @@ export class BucketContext implements vscode.Disposable {
     }
     if (partial.activity) {
       this.state.activity = partial.activity;
+    }
+    if (partial.authUser !== undefined) {
+      this.state.authUser = partial.authUser;
     }
     this.state.lastTs = now;
   }
@@ -68,7 +74,10 @@ export class BucketContext implements vscode.Disposable {
     filePath: string,
     deltas: { active: number; idle: number },
   ) {
-    this.api.addDocumentDurations(filePath, {
+    const authIdentity =
+      this.state.authUser?.username ?? this.state.authUser?.accountId ?? null;
+
+    this.api.addDocumentDurations(filePath, authIdentity, {
       activeDelta: deltas.active,
       idleDelta: deltas.idle,
     });

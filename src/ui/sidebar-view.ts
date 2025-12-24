@@ -201,7 +201,8 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
     };
 
     Object.entries(buckets).forEach(([bucketPath, stats]) => {
-      const parts = bucketPath.split('/');
+      const [, relPath = ''] = bucketPath.split(/,(.+)/); // split once on first comma
+      const parts = relPath.split('/');
       let node = tree;
 
       // Always aggregate into root for every bucket.

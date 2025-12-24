@@ -1,44 +1,74 @@
 import * as vscode from 'vscode';
-import { TimeAnalyticsApi } from '../api/time-analytics-api';
 import { formatTime } from '../utils/time-utils';
 
 export class StatusBarProvider implements vscode.Disposable {
   private item: vscode.StatusBarItem;
   private timer: NodeJS.Timeout | undefined;
+  private sessionStart: number | null = null;
+  private totalMs = 0;
+  private disposables: vscode.Disposable[] = [];
 
-  constructor(private readonly api: TimeAnalyticsApi) {
+  constructor() {
     this.item = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
       1000,
     );
     this.item.command = 'timeAnalytics.showFileStats';
     this.item.show();
-    this.update();
-    this.timer = setInterval(() => this.update(), 1000);
-  }
 
-  private update() {
-    const workspace = vscode.workspace.workspaceFolders?.[0];
-    if (!workspace) {
-      this.item.text = '$(clock) Time Analytics: no workspace';
-      this.item.tooltip = 'Open a workspace to track time';
-      return;
+    // Sync with current focus state then listen for changes.
+    if (vscode.window.state.focused) {
+      this.startTimer();
+    } else {
+      this.updateText();
     }
 
-    const projectTotals = this.api.getProjectTotals(workspace.uri);
-    const active = projectTotals.active;
-    const idle = projectTotals.idle;
+    this.disposables.push(
+      vscode.window.onDidChangeWindowState((state) => {
+        if (state.focused) {
+          this.startTimer();
+        } else {
+          this.stopTimer();
+        }
+      }),
+    );
+  }
 
-    this.item.text = `$(clock) Active ${formatTime(active / 1000)} · Idle ${formatTime(
-      idle / 1000,
-    )}`;
-    this.item.tooltip = 'Click to view current file stats';
+  private startTimer() {
+    if (this.timer) return;
+    this.sessionStart = Date.now();
+    this.timer = setInterval(() => this.tick(), 1000);
+    this.tick();
+  }
+
+  private stopTimer() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = undefined;
+    }
+
+    if (this.sessionStart !== null) {
+      this.totalMs += Date.now() - this.sessionStart;
+      this.sessionStart = null;
+    }
+
+    this.updateText();
+  }
+
+  private tick() {
+    const runningMs = this.sessionStart ? Date.now() - this.sessionStart : 0;
+    this.updateText(this.totalMs + runningMs);
+  }
+
+  private updateText(totalMs: number = this.totalMs) {
+    const totalSeconds = totalMs / 1000;
+    this.item.text = `$(clock) Focus ${formatTime(totalSeconds)}`;
+    this.item.tooltip = 'Time this window has stayed in focus';
   }
 
   dispose() {
-    if (this.timer) {
-      clearInterval(this.timer);
-    }
+    this.stopTimer();
+    this.disposables.forEach((d) => d.dispose());
     this.item.dispose();
   }
 }
