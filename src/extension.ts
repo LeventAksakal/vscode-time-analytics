@@ -1,16 +1,29 @@
 import * as vscode from 'vscode';
-import { DataManager } from './managers/DataManager';
-import { TimeManager } from './managers/TimeManager';
-import { StatusBarProvider } from './providers/StatusBarProvider';
-import { SidebarProvider } from './providers/SidebarProvider';
-import { formatTime } from './utils/timeUtils';
+import { TimeAnalyticsApi } from './api/time-analytics-api';
+import { BucketContext } from './core/bucket-context';
+import { DocumentTracker } from './core/document-tracker';
+import { TypingTracker } from './core/typing-tracker';
+import { AuthTracker } from './core/auth-tracker';
+import { StatusBarProvider } from './ui/statusbar-timer';
+import { SidebarView } from './ui/sidebar-view';
+import { formatTime } from './utils/time-utils';
+import { AuthBadge } from './ui/auth-badge';
 
 export function activate(context: vscode.ExtensionContext) {
-  const dataManager = new DataManager(context);
-
-  const timeManager = new TimeManager(dataManager);
+  const api = new TimeAnalyticsApi(context);
+  const bucketContext = new BucketContext(api);
+  const documentTracker = new DocumentTracker(bucketContext);
+  const typingTracker = new TypingTracker(bucketContext);
+  const authTracker = new AuthTracker(bucketContext);
   const statusBar = new StatusBarProvider();
-  const sidebarProvider = new SidebarProvider(dataManager, timeManager);
+  const authBadge = new AuthBadge(authTracker);
+  const sidebarProvider = new SidebarView(api, bucketContext);
+
+  void authTracker.promptIfSignedOut();
+
+  vscode.workspace.workspaceFolders?.forEach((folder) =>
+    api.ensureWorkspaceInitialized(folder.uri),
+  );
 
   const treeView = vscode.window.createTreeView('time-analytics-sidebar', {
     treeDataProvider: sidebarProvider,
@@ -20,7 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
   const fileStatsCommand = vscode.commands.registerCommand(
     'timeAnalytics.showFileStats',
     async () => {
-      timeManager.forceFlush();
+      bucketContext.flushNow();
 
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
@@ -28,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const stats = dataManager.getFileStats(editor.document);
+      const stats = api.getDocumentStats(editor.document);
       if (!stats) {
         vscode.window.showInformationMessage(
           'No stats available for this file yet',
@@ -37,8 +50,8 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       const active = stats.active;
-      const total = stats.focus;
-      const idle = Math.max(0, total - active);
+      const idle = stats.idle;
+      const focus = active + idle;
 
       const items = [
         {
@@ -51,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
         },
         {
           label: '$(clock) Total Time',
-          description: formatTime(total / 1000),
+          description: formatTime(focus / 1000),
         },
       ];
 
@@ -66,32 +79,43 @@ export function activate(context: vscode.ExtensionContext) {
   const refreshCommand = vscode.commands.registerCommand(
     'timeAnalytics.refreshStats',
     () => {
-      timeManager.forceFlush();
       sidebarProvider.refresh();
     },
   );
 
-  context.subscriptions.push(timeManager);
+  const signInCommand = vscode.commands.registerCommand(
+    'timeAnalytics.signIn',
+    async () => {
+      if (authTracker.getUser()) {
+        void vscode.window.showInformationMessage('Already signed in.');
+        return;
+      }
+      await authTracker.promptSignIn();
+    },
+  );
+
+  context.subscriptions.push(documentTracker);
+  context.subscriptions.push(typingTracker);
   context.subscriptions.push(statusBar);
+  context.subscriptions.push(authTracker);
+  context.subscriptions.push(authBadge);
   context.subscriptions.push(fileStatsCommand);
   context.subscriptions.push(refreshCommand);
+  context.subscriptions.push(signInCommand);
 
   context.subscriptions.push(
     vscode.workspace.onDidRenameFiles(async (e) => {
       for (const file of e.files) {
-        await dataManager.handleFileRename(file.oldUri, file.newUri);
+        api.handleDocumentRename(file.oldUri, file.newUri);
       }
-      sidebarProvider.refresh();
     }),
   );
 
   context.subscriptions.push(
     vscode.workspace.onDidDeleteFiles(async (e) => {
       for (const uri of e.files) {
-        timeManager.stopTracking(uri.fsPath);
-        await dataManager.handleFileDelete(uri);
+        api.handleDocumentDelete(uri);
       }
-      sidebarProvider.refresh();
     }),
   );
 }
