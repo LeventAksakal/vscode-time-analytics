@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { TimeAnalyticsApi } from './api/time-analytics-api';
 import { TimeTracker } from './core/time-tracker';
-import { StatusBarProvider } from './ui/StatusBarProvider';
-import { SidebarView } from './ui/SidebarView';
+import { StatusBarProvider } from './ui/statusbar-timer';
+import { SidebarView } from './ui/sidebar-view';
 import { formatTime } from './utils/timeUtils';
 
 export function activate(context: vscode.ExtensionContext) {
