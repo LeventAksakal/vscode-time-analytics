@@ -1,9 +1,11 @@
 import { FileVersion, findFileVersion } from '../file-versions/version-finder';
+import { type FileFormat_0_1_5 } from '../file-versions/0.1.5';
 import { type FileFormat_0_1_4 } from '../file-versions/0.1.4';
 import { type FileFormat_0_1_3 } from '../file-versions/0.1.3';
 import { type FileFormat_0_1_2 } from '../file-versions/0.1.2';
 import { type FileFormat_0_1_1 } from '../file-versions/0.1.1';
 import { migrate0_1_1_to0_1_2 } from './0.1.1-0.1.2';
+import { migrate0_1_4_to0_1_5 } from './0.1.4-0.1.5';
 import { migrate0_1_3_to0_1_4 } from './0.1.3-0.1.4';
 import { migrate0_1_2_to0_1_3 } from './0.1.2-0.1.3';
 
@@ -16,11 +18,13 @@ const MIGRATIONS: MigrationMap = {
     migrate0_1_2_to0_1_3(value as FileFormat_0_1_2),
   [FileVersion.V_0_1_3]: (value) =>
     migrate0_1_3_to0_1_4(value as FileFormat_0_1_3),
+  [FileVersion.V_0_1_4]: (value) =>
+    migrate0_1_4_to0_1_5(value as FileFormat_0_1_4),
 };
 
-export function createEmptyLatest(): FileFormat_0_1_4 {
+export function createEmptyLatest(): FileFormat_0_1_5 {
   return {
-    version: FileVersion.V_0_1_4,
+    version: FileVersion.V_0_1_5,
     project: { totalIdleTime: 0, totalActiveTime: 0 },
     buckets: {},
     deleted: undefined,
@@ -28,7 +32,7 @@ export function createEmptyLatest(): FileFormat_0_1_4 {
 }
 
 export function migrateToLatest(raw: unknown): {
-  data: FileFormat_0_1_4;
+  data: FileFormat_0_1_5;
   from: FileVersion;
   to: FileVersion;
 } {
@@ -38,7 +42,7 @@ export function migrateToLatest(raw: unknown): {
     return {
       data: createEmptyLatest(),
       from: FileVersion.Unknown,
-      to: FileVersion.V_0_1_4,
+      to: FileVersion.V_0_1_5,
     };
   }
 
@@ -51,7 +55,7 @@ export function migrateToLatest(raw: unknown): {
       return {
         data: createEmptyLatest(),
         from: FileVersion.Unknown,
-        to: FileVersion.V_0_1_4,
+        to: FileVersion.V_0_1_5,
       };
     }
     seen.add(currentVersion);
@@ -71,9 +75,9 @@ export function migrateToLatest(raw: unknown): {
     }
   }
 
-  if (currentVersion === FileVersion.V_0_1_4) {
+  if (currentVersion === FileVersion.V_0_1_5) {
     return {
-      data: working as FileFormat_0_1_4,
+      data: working as FileFormat_0_1_5,
       from: detected,
       to: currentVersion,
     };
@@ -82,6 +86,6 @@ export function migrateToLatest(raw: unknown): {
   return {
     data: createEmptyLatest(),
     from: FileVersion.Unknown,
-    to: FileVersion.V_0_1_4,
+    to: FileVersion.V_0_1_5,
   };
 }

@@ -4,6 +4,7 @@ import { BucketContext } from './core/bucket-context';
 import { DocumentTracker } from './core/document-tracker';
 import { TypingTracker } from './core/typing-tracker';
 import { AuthTracker } from './core/auth-tracker';
+import { DayTracker } from './core/day-tracker';
 import { StatusBarProvider } from './ui/statusbar-timer';
 import { SidebarView } from './ui/sidebar-view';
 import { formatTime } from './utils/time-utils';
@@ -15,6 +16,7 @@ export function activate(context: vscode.ExtensionContext) {
   const documentTracker = new DocumentTracker(bucketContext);
   const typingTracker = new TypingTracker(bucketContext);
   const authTracker = new AuthTracker(bucketContext);
+  const dayTracker = new DayTracker(bucketContext);
   const statusBar = new StatusBarProvider();
   const authBadge = new AuthBadge(authTracker);
   const sidebarProvider = new SidebarView(api, bucketContext);
@@ -98,6 +100,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(typingTracker);
   context.subscriptions.push(statusBar);
   context.subscriptions.push(authTracker);
+  context.subscriptions.push(dayTracker);
   context.subscriptions.push(authBadge);
   context.subscriptions.push(fileStatsCommand);
   context.subscriptions.push(refreshCommand);

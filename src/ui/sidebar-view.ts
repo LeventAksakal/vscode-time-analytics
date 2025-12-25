@@ -3,6 +3,7 @@ import * as path from 'path';
 import { TimeAnalyticsApi } from '../api/time-analytics-api';
 import { BucketContext } from '../core/bucket-context';
 import { formatTime } from '../utils/time-utils';
+import { parseBucketKey } from '../utils/bucket-utils';
 
 interface AggregatedStats {
   active: number;
@@ -125,9 +126,14 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
         const rootStats = tree._stats;
 
         const deletedStats = this.api.getDeletedStats(rootUri);
+        const deletedTotals = { active: 0, idle: 0 };
         if (deletedStats) {
-          rootStats.active += deletedStats.active;
-          rootStats.idle += deletedStats.idle;
+          for (const value of Object.values(deletedStats)) {
+            deletedTotals.active += value.active;
+            deletedTotals.idle += value.idle;
+          }
+          rootStats.active += deletedTotals.active;
+          rootStats.idle += deletedTotals.idle;
         }
 
         items.push(
@@ -139,16 +145,13 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
             false,
           ),
         );
-        if (
-          deletedStats &&
-          (deletedStats.active > 0 || deletedStats.idle > 0)
-        ) {
+        if (deletedTotals.active > 0 || deletedTotals.idle > 0) {
           const deletedItem = new FileTreeItem(
             'Deleted Files',
             vscode.TreeItemCollapsibleState.None,
             {
-              active: deletedStats.active,
-              idle: deletedStats.idle,
+              active: deletedTotals.active,
+              idle: deletedTotals.idle,
             },
             undefined,
             false,
@@ -201,8 +204,9 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
     };
 
     Object.entries(buckets).forEach(([bucketPath, stats]) => {
-      const [, relPath = ''] = bucketPath.split(/,(.+)/); // split once on first comma
-      const parts = relPath.split('/');
+      const parsed = parseBucketKey(bucketPath);
+      if (!parsed) return;
+      const parts = parsed.relPath.split('/');
       let node = tree;
 
       // Always aggregate into root for every bucket.

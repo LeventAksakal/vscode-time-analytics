@@ -62,7 +62,7 @@ export class StatusBarProvider implements vscode.Disposable {
 
   private updateText(totalMs: number = this.totalMs) {
     const totalSeconds = totalMs / 1000;
-    this.item.text = `$(clock) Focus ${formatTime(totalSeconds)}`;
+    this.item.text = `$(clock) ${formatTime(totalSeconds)}`;
     this.item.tooltip = 'Time this window has stayed in focus';
   }
 
