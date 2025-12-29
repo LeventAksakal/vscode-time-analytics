@@ -1,48 +1,40 @@
 # TODO
 
-## Current State (0.1.3 buckets)
+## Settings / Options UI
 
-- Buckets replace files; API uses bucket keys (relative path) with `active/idle` deltas.
-- Document/typing trackers drive a shared bucket-context; UI reads persisted data only.
+- Add an options page (likely a webview-based settings UI) with: typing debounce slider (slow/fast typer), auto-start vs manual-start tracking toggle, and room for future toggles (gitignore behavior, post-commit handling, UI theme).
+- Wire options to runtime config and persist in workspace/user settings.
 
-## Multi-Window Concurrency
+## Storage & Auto-Heal
 
-- Add cross-process safety when multiple VS Code windows share the same workspace:
-  - Prefer advisory file locking around read/modify/write of `.vscode/time-analytics.json` (e.g., retry with backoff), or
-  - Switch to an append-only journal + periodic compaction.
+- On any write, recreate `.vscode/time-analytics.json` and parent dir if missing; re-append gitignore entry when a repo exists (no reload needed).
+- Decide on journal or file-lock strategy for multi-window safety; avoid clobbers across VS Code windows.
 
-## Next Schema (0.2.0 – backlog)
+## API Redesign
 
-- Flat bucketKey with dimensions (day|file|user|commit|branch), plus indexes for day/user/file/commit.
-- Aggregate caches: project, users[userId], files[path].users[userId], daily[day], commits[hash], deleted.users[userId].
-- Migration 0.1.2 -> 0.2.0: wrap file stats into users.anonymous, carry project totals/deleted, init indexes, set version.
+- Split persistence from business logic; design a typed, concise API surface (similar clarity to `src/types/git.ts`).
+- Add indexed queries: getUserStats, getDailyStats, weekly/monthly ranges, per-commit, per-file, per-branch. Consider precomputed aggregates.
+- Keep a single “latest” schema alias; migrations isolated from API consumers.
 
-## API Layer
+## UI / Webviews
 
-- Keep single latest alias; expose bucket helpers: addToBucket, rename, markDeleted, stats helpers; persist with locking/journal strategy.
+- Build richer webviews: calendar heatmap, daily/weekly summaries, per-file timelines, graphs. Respect live flushes and deleted buckets.
 
-## Core / Tracking
+## Git Handling
 
-- bucket-context: flush on context changes; split idle across focused files; single active target at a time.
-- Trackers backlog: auth (user), git (commit/branch), fs (open/close/rename/delete->markDeleted), day rollover.
+- Keep existing commit finalize flow; backlog: amend/rebase detection and commit-hash remap for rewrites; repo close/delete collapse stays intact.
+- Optional post-commit helper (opt-in) to stage/amend analytics with guardrails.
 
-## UI
+## Tracking Core
 
-- SidebarView: aggregate buckets (incl. deleted) without double counting; live flush per refresh tick.
-- Future webviews: calendar heatmap, recent activity, daily summary, ad-hoc stats.
-
-## Extension Wiring
-
-- Instantiate API + bucket-context + trackers; hook VS Code events; register sidebar/status bar/webviews; remove legacy managers.
+- bucket-context: debounce/flush tuning from settings; multi-focus idle split; ensure day rollover.
+- Trackers: auth, git, fs rename/delete, day tracker; ensure reset commands can rebuild files and gitignore.
 
 ## Testing
 
-- Migration test 0.1.2 -> 0.2.0 (when built).
-- bucket-context: flush math and multi-focus idle split.
-- Trackers: debounce active/idle timing.
-- Concurrency: lock/journal write path under multi-window scenario.
+- Bucket math and multi-focus idle split; git scenarios (commit, amend, repo close collapse); delete/rename with branch-aware keys.
+- Concurrency tests once lock/journal is chosen; migration tests for next schema.
 
 ## Docs
 
-- README for 0.1.3 buckets (and 0.2.0 when ready): bucket semantics, multi-focus rules, concurrency note.
-- CHANGELOG via release-please.
+- Update README with settings, gitignore behavior, schema notes, and UI usage; maintain CHANGELOG.

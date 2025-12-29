@@ -10,6 +10,8 @@ interface ContextState {
   activity: Activity;
   authUser: AuthUser | null;
   dateKey: string;
+  gitBranch: string;
+  gitCommit: string | null;
   lastTs: number | null;
 }
 
@@ -19,6 +21,8 @@ export class BucketContext implements vscode.Disposable {
     activity: { kind: 'IDLE' },
     authUser: null,
     dateKey: formatDay(new Date()),
+    gitBranch: 'null',
+    gitCommit: null,
     lastTs: null,
   };
 
@@ -42,6 +46,12 @@ export class BucketContext implements vscode.Disposable {
     }
     if (partial.dateKey !== undefined) {
       this.state.dateKey = partial.dateKey;
+    }
+    if (partial.gitBranch !== undefined) {
+      this.state.gitBranch = partial.gitBranch;
+    }
+    if (partial.gitCommit !== undefined) {
+      this.state.gitCommit = partial.gitCommit;
     }
     this.state.lastTs = now;
   }
@@ -83,11 +93,37 @@ export class BucketContext implements vscode.Disposable {
     const authIdentity =
       this.state.authUser?.username ?? this.state.authUser?.accountId ?? null;
     const dateKey = this.state.dateKey;
+    const gitBranch = this.state.gitBranch;
 
-    this.api.addDocumentDurations(filePath, dateKey, authIdentity, {
+    this.api.addDocumentDurations(filePath, dateKey, gitBranch, authIdentity, {
       activeDelta: deltas.active,
       idleDelta: deltas.idle,
     });
+  }
+
+  finalizeCommit(repoRoot: vscode.Uri, branch: string, commitHash: string) {
+    this.flush(Date.now());
+    const workspace = vscode.workspace.getWorkspaceFolder(repoRoot);
+    if (!workspace) return;
+    this.api.finalizeCommit(workspace.uri, repoRoot, branch, commitHash);
+  }
+
+  collapseRepository(repoRoot: vscode.Uri) {
+    this.flush(Date.now());
+    const workspace = vscode.workspace.getWorkspaceFolder(repoRoot);
+    if (!workspace) return;
+    this.api.collapseRepository(workspace.uri, repoRoot);
+  }
+
+  transferBranchStaging(
+    fromBranch: string,
+    toBranch: string,
+    repoRoot: vscode.Uri,
+  ) {
+    this.flush(Date.now());
+    const workspace = vscode.workspace.getWorkspaceFolder(repoRoot);
+    if (!workspace) return;
+    this.api.transferBranchStaging(workspace.uri, fromBranch, toBranch);
   }
 
   dispose() {

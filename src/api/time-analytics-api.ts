@@ -6,12 +6,14 @@ import {
   createEmptyLatest,
 } from '../migrations/migration-runner';
 import { FileVersion } from '../file-versions/version-finder';
-import type { FileFormat_0_1_5 } from '../file-versions/0.1.5';
+import type { FileFormat_0_1_6 } from '../file-versions/0.1.6';
 import { formatDay } from '../utils/time-utils';
 import { parseBucketKey } from '../utils/bucket-utils';
 
+const NO_BRANCH = 'null';
+
 // Alias the current latest version so we only change one import when bumping schema.
-type LatestFileFormat = FileFormat_0_1_5;
+type LatestFileFormat = FileFormat_0_1_6;
 type LatestBucketEntry = LatestFileFormat['buckets'][string];
 type LatestDeleted = NonNullable<LatestFileFormat['deleted']>;
 
@@ -86,6 +88,7 @@ export class TimeAnalyticsApi {
     const context = this.resolveDocumentContext(
       document.uri,
       formatDay(new Date()),
+      NO_BRANCH,
       null,
     );
     if (!context || !fs.existsSync(context.storagePath)) return undefined;
@@ -97,12 +100,17 @@ export class TimeAnalyticsApi {
   public addDocumentDurations(
     filePath: string,
     dateKey: string,
+    gitBranch: string,
     authIdentity: string | null,
     deltas: { activeDelta: number; idleDelta: number },
   ) {
+    const normalized = filePath.replace(/\\/g, '/');
+    if (normalized.includes('/.git/')) return;
+
     const context = this.resolveDocumentContext(
       vscode.Uri.file(filePath),
       dateKey,
+      gitBranch,
       authIdentity,
     );
     if (!context) return;
@@ -121,28 +129,201 @@ export class TimeAnalyticsApi {
     this.updateGlobalStats(0, idleDelta);
   }
 
-  public handleDocumentRename(oldUri: vscode.Uri, newUri: vscode.Uri) {
-    const today = formatDay(new Date());
-    const oldContext = this.resolveDocumentContext(oldUri, today, null);
-    const newContext = this.resolveDocumentContext(newUri, today, null);
-    if (!oldContext || !newContext) return;
-    if (oldContext.storagePath !== newContext.storagePath) return;
+  public collapseRepository(workspaceUri: vscode.Uri, repoRoot: vscode.Uri) {
+    const storagePath = this.getStoragePath(workspaceUri);
+    const data = this.readFile(storagePath);
+    const workspaceFs = workspaceUri.fsPath.replace(/\\/g, '/');
+    const repoRootFs = repoRoot.fsPath.replace(/\\/g, '/');
+    const repoRootRel = path
+      .relative(workspaceFs, repoRootFs)
+      .replace(/\\/g, '/');
+    const repoPrefix = repoRootRel === '' ? '' : `${repoRootRel}/`;
 
-    const data = this.readFile(oldContext.storagePath);
     let modified = false;
 
-    if (data.buckets[oldContext.bucketKey]) {
-      data.buckets[newContext.bucketKey] = data.buckets[oldContext.bucketKey];
-      delete data.buckets[oldContext.bucketKey];
+    for (const key of Object.keys(data.buckets)) {
+      const parsed = parseBucketKey(key);
+      if (!parsed) continue;
+
+      const inRepo =
+        repoRootRel === '' ||
+        parsed.relPath === repoRootRel ||
+        parsed.relPath.startsWith(repoPrefix);
+
+      if (!inRepo) continue;
+
+      const bucket = data.buckets[key];
+      const commitTotals = bucket.commits
+        ? Object.values(bucket.commits).reduce(
+            (acc, c) => {
+              acc.active += c.active;
+              acc.idle += c.idle;
+              return acc;
+            },
+            { active: 0, idle: 0 },
+          )
+        : { active: 0, idle: 0 };
+
+      const stagingActive = bucket.active + commitTotals.active;
+      const stagingIdle = bucket.idle + commitTotals.idle;
+
+      const targetKey = `${parsed.date},${parsed.auth},null,${parsed.relPath}`;
+
+      if (targetKey === key) {
+        bucket.active = stagingActive;
+        bucket.idle = stagingIdle;
+        if (bucket.commits) delete bucket.commits;
+        modified = true;
+        continue;
+      }
+
+      const target = data.buckets[targetKey] ?? { active: 0, idle: 0 };
+      target.active += stagingActive;
+      target.idle += stagingIdle;
+      data.buckets[targetKey] = target;
+
+      delete data.buckets[key];
       modified = true;
     }
 
-    const oldPrefix = `${oldContext.bucketKey}/`;
-    const newPrefix = `${newContext.bucketKey}/`;
+    if (modified) {
+      this.writeFile(storagePath, data);
+    }
+  }
+
+  public finalizeCommit(
+    workspaceUri: vscode.Uri,
+    repoRoot: vscode.Uri,
+    branch: string,
+    commitHash: string,
+  ) {
+    const storagePath = this.getStoragePath(workspaceUri);
+    const data = this.readFile(storagePath);
+    let modified = false;
+
+    const repoRootFs = repoRoot.fsPath.replace(/\\/g, '/');
+    const workspaceFs = workspaceUri.fsPath.replace(/\\/g, '/');
 
     for (const key of Object.keys(data.buckets)) {
-      if (key.startsWith(oldPrefix)) {
-        const newKey = newPrefix + key.substring(oldPrefix.length);
+      const parsed = parseBucketKey(key);
+      if (!parsed) continue;
+      if (parsed.branch !== branch && parsed.branch !== 'null') continue;
+
+      const absPath = `${workspaceFs}/${parsed.relPath}`;
+      // Ensure the file is inside the repository root.
+      if (
+        !absPath.startsWith(
+          repoRootFs.endsWith('/') ? repoRootFs : `${repoRootFs}/`,
+        )
+      ) {
+        continue;
+      }
+
+      const bucket = data.buckets[key];
+      const targetKey = `${parsed.date},${parsed.auth},${branch},${parsed.relPath}`;
+
+      const target = data.buckets[targetKey] ?? { active: 0, idle: 0 };
+
+      const mergedCommits: Record<string, { active: number; idle: number }> = {
+        ...(target.commits ?? {}),
+        ...(bucket.commits ?? {}),
+      };
+
+      if (bucket.active !== 0 || bucket.idle !== 0) {
+        const stats = mergedCommits[commitHash] ?? { active: 0, idle: 0 };
+        stats.active += bucket.active;
+        stats.idle += bucket.idle;
+        mergedCommits[commitHash] = stats;
+      }
+
+      target.commits = Object.keys(mergedCommits).length
+        ? mergedCommits
+        : undefined;
+
+      // Staging moves to commits; keep any existing staging in target as-is.
+      bucket.active = 0;
+      bucket.idle = 0;
+
+      data.buckets[targetKey] = target;
+      if (targetKey !== key) {
+        delete data.buckets[key];
+      }
+
+      modified = true;
+    }
+
+    if (modified) {
+      this.writeFile(storagePath, data);
+    }
+  }
+
+  public transferBranchStaging(
+    workspaceUri: vscode.Uri,
+    fromBranch: string,
+    toBranch: string,
+  ) {
+    if (fromBranch === toBranch) return;
+    const storagePath = this.getStoragePath(workspaceUri);
+    const data = this.readFile(storagePath);
+    let modified = false;
+
+    for (const key of Object.keys(data.buckets)) {
+      const parsed = parseBucketKey(key);
+      if (!parsed) continue;
+      if (parsed.branch !== fromBranch) continue;
+
+      const bucket = data.buckets[key];
+      if (bucket.active === 0 && bucket.idle === 0) {
+        continue;
+      }
+
+      const targetKey = `${parsed.date},${parsed.auth},${toBranch},${parsed.relPath}`;
+      const target = data.buckets[targetKey] ?? { active: 0, idle: 0 };
+
+      target.active += bucket.active;
+      target.idle += bucket.idle;
+
+      bucket.active = 0;
+      bucket.idle = 0;
+
+      data.buckets[targetKey] = target;
+      if (targetKey !== key) {
+        data.buckets[key] = bucket;
+      }
+
+      modified = true;
+    }
+
+    if (modified) {
+      this.writeFile(storagePath, data);
+    }
+  }
+
+  public handleDocumentRename(oldUri: vscode.Uri, newUri: vscode.Uri) {
+    const folder = vscode.workspace.getWorkspaceFolder(newUri);
+    if (!folder) return;
+
+    const storagePath = this.getStoragePath(folder.uri);
+    const oldRel = path
+      .relative(folder.uri.fsPath, oldUri.fsPath)
+      .replace(/\\/g, '/');
+    const newRel = path
+      .relative(folder.uri.fsPath, newUri.fsPath)
+      .replace(/\\/g, '/');
+
+    const data = this.readFile(storagePath);
+    let modified = false;
+
+    for (const key of Object.keys(data.buckets)) {
+      const parsed = parseBucketKey(key);
+      if (!parsed) continue;
+      if (
+        parsed.relPath === oldRel ||
+        parsed.relPath.startsWith(`${oldRel}/`)
+      ) {
+        const suffix = parsed.relPath.substring(oldRel.length);
+        const updatedRel = `${newRel}${suffix}`;
+        const newKey = `${parsed.date},${parsed.auth},${parsed.branch},${updatedRel}`;
         data.buckets[newKey] = data.buckets[key];
         delete data.buckets[key];
         modified = true;
@@ -150,7 +331,7 @@ export class TimeAnalyticsApi {
     }
 
     if (modified) {
-      this.writeFile(oldContext.storagePath, data);
+      this.writeFile(storagePath, data);
     }
   }
 
@@ -196,7 +377,12 @@ export class TimeAnalyticsApi {
     }
   }
 
+  // Legacy entry point used by activation; delegates to setupTimeAnalytics.
   public ensureWorkspaceInitialized(uri: vscode.Uri) {
+    this.setupTimeAnalytics(uri);
+  }
+
+  public setupTimeAnalytics(uri: vscode.Uri) {
     const filePath = this.getStoragePath(uri);
     if (!filePath) return;
     if (!fs.existsSync(filePath)) {
@@ -205,6 +391,21 @@ export class TimeAnalyticsApi {
       // Reading will migrate and rewrite if needed.
       this.readFile(filePath);
     }
+
+    this.ensureGitignore(uri);
+  }
+
+  public removeTimeAnalytics(uri: vscode.Uri) {
+    const filePath = this.getStoragePath(uri);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (e) {
+      console.error('Failed to remove time analytics file', e);
+    }
+
+    this.removeGitignoreEntry(uri);
   }
 
   // -------- Internal helpers --------
@@ -243,6 +444,7 @@ export class TimeAnalyticsApi {
   private resolveDocumentContext(
     uri: vscode.Uri,
     dateKey: string,
+    gitBranch: string,
     authIdentity: string | null,
   ):
     | { workspaceUri: vscode.Uri; storagePath: string; bucketKey: string }
@@ -251,7 +453,13 @@ export class TimeAnalyticsApi {
     if (!folder) return undefined;
 
     const storagePath = this.getStoragePath(folder.uri);
-    const bucketKey = this.toBucketKey(folder.uri, uri, dateKey, authIdentity);
+    const bucketKey = this.toBucketKey(
+      folder.uri,
+      uri,
+      dateKey,
+      gitBranch,
+      authIdentity,
+    );
     return { workspaceUri: folder.uri, storagePath, bucketKey };
   }
 
@@ -259,6 +467,7 @@ export class TimeAnalyticsApi {
     workspaceUri: vscode.Uri,
     targetUri: vscode.Uri,
     dateKey: string,
+    gitBranch: string,
     authIdentity: string | null,
   ): string {
     const migratedDate = '<Migrated Date>';
@@ -267,11 +476,64 @@ export class TimeAnalyticsApi {
       .replace(/\\/g, '/');
     const dayPart = dateKey || migratedDate;
     const authPart = authIdentity ?? 'null';
-    return `${dayPart},${authPart},${rel}`;
+    const branchPart = gitBranch || 'null';
+    return `${dayPart},${authPart},${branchPart},${rel}`;
   }
 
   private getStoragePath(workspaceUri: vscode.Uri): string {
     return path.join(workspaceUri.fsPath, '.vscode', 'time-analytics.json');
+  }
+
+  private ensureGitignore(workspaceUri: vscode.Uri) {
+    const gitDir = path.join(workspaceUri.fsPath, '.git');
+    if (!fs.existsSync(gitDir)) return;
+
+    const gitignorePath = path.join(workspaceUri.fsPath, '.gitignore');
+    const entry = '.vscode/time-analytics.json';
+
+    let lines: string[] = [];
+    if (fs.existsSync(gitignorePath)) {
+      try {
+        lines = fs.readFileSync(gitignorePath, 'utf8').split(/\r?\n/);
+      } catch (e) {
+        console.error('Failed to read .gitignore', e);
+        return;
+      }
+      if (lines.some((line) => line.trim() === entry)) {
+        return;
+      }
+    }
+
+    const needsNewline =
+      lines.length > 0 && lines[lines.length - 1].trim() !== '';
+    if (needsNewline) {
+      lines.push('');
+    }
+    lines.push(entry);
+
+    try {
+      fs.writeFileSync(gitignorePath, lines.join('\n'));
+    } catch (e) {
+      console.error('Failed to update .gitignore', e);
+    }
+  }
+
+  private removeGitignoreEntry(workspaceUri: vscode.Uri) {
+    const gitDir = path.join(workspaceUri.fsPath, '.git');
+    if (!fs.existsSync(gitDir)) return;
+
+    const gitignorePath = path.join(workspaceUri.fsPath, '.gitignore');
+    const entry = '.vscode/time-analytics.json';
+    if (!fs.existsSync(gitignorePath)) return;
+
+    try {
+      const lines = fs.readFileSync(gitignorePath, 'utf8').split(/\r?\n/);
+      const filtered = lines.filter((line) => line.trim() !== entry);
+      if (filtered.length === lines.length) return;
+      fs.writeFileSync(gitignorePath, filtered.join('\n'));
+    } catch (e) {
+      console.error('Failed to clean .gitignore', e);
+    }
   }
 
   private readWorkspaceData(workspaceUri: vscode.Uri): LatestFileFormat {
@@ -297,8 +559,8 @@ export class TimeAnalyticsApi {
     const migrated = migrateToLatest(raw);
     if (
       needsWrite ||
-      migrated.from !== FileVersion.V_0_1_5 ||
-      migrated.to !== FileVersion.V_0_1_5
+      migrated.from !== FileVersion.V_0_1_6 ||
+      migrated.to !== FileVersion.V_0_1_6
     ) {
       this.writeFile(filePath, migrated.data);
     }

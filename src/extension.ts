@@ -5,6 +5,7 @@ import { DocumentTracker } from './core/document-tracker';
 import { TypingTracker } from './core/typing-tracker';
 import { AuthTracker } from './core/auth-tracker';
 import { DayTracker } from './core/day-tracker';
+import { GitTracker } from './core/git-tracker';
 import { StatusBarProvider } from './ui/statusbar-timer';
 import { SidebarView } from './ui/sidebar-view';
 import { formatTime } from './utils/time-utils';
@@ -17,6 +18,7 @@ export function activate(context: vscode.ExtensionContext) {
   const typingTracker = new TypingTracker(bucketContext);
   const authTracker = new AuthTracker(bucketContext);
   const dayTracker = new DayTracker(bucketContext);
+  const gitTracker = new GitTracker(bucketContext);
   const statusBar = new StatusBarProvider();
   const authBadge = new AuthBadge(authTracker);
   const sidebarProvider = new SidebarView(api, bucketContext);
@@ -24,7 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
   void authTracker.promptIfSignedOut();
 
   vscode.workspace.workspaceFolders?.forEach((folder) =>
-    api.ensureWorkspaceInitialized(folder.uri),
+    api.setupTimeAnalytics(folder.uri),
   );
 
   const treeView = vscode.window.createTreeView('time-analytics-sidebar', {
@@ -101,6 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(statusBar);
   context.subscriptions.push(authTracker);
   context.subscriptions.push(dayTracker);
+  context.subscriptions.push(gitTracker);
   context.subscriptions.push(authBadge);
   context.subscriptions.push(fileStatsCommand);
   context.subscriptions.push(refreshCommand);
