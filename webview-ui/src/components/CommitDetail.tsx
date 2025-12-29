@@ -10,7 +10,7 @@ const mockCommitFiles = [
   { path: 'src/components/Queries.tsx', active: 42, idle: 8 },
   { path: 'src/components/ProgressStick.tsx', active: 28, idle: 6 },
   { path: 'src/data/mockData.ts', active: 18, idle: 4 },
-  { path: 'src/types/index.ts', active: 12, idle: 2 }
+  { path: 'src/types/index.ts', active: 12, idle: 2 },
 ];
 
 export function CommitDetail({ data, onClose }: CommitDetailProps) {
@@ -57,7 +57,12 @@ export function CommitDetail({ data, onClose }: CommitDetailProps) {
         <div>
           <div className="text-[#858585] text-sm mb-3">Total Time</div>
           <div className="bg-[#1e1e1e] rounded p-3">
-            <ProgressStick active={totalActive} idle={totalIdle} total={totalActive + totalIdle} maxTotal={300} />
+            <ProgressStick
+              active={totalActive}
+              idle={totalIdle}
+              total={totalActive + totalIdle}
+              maxTotal={300}
+            />
             <div className="flex items-center gap-6 mt-3 text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-[#4ec9b0] rounded-sm" />
@@ -75,12 +80,21 @@ export function CommitDetail({ data, onClose }: CommitDetailProps) {
 
         {/* Files */}
         <div>
-          <div className="text-[#858585] text-sm mb-3">Modified Files ({mockCommitFiles.length})</div>
+          <div className="text-[#858585] text-sm mb-3">
+            Modified Files ({mockCommitFiles.length})
+          </div>
           <div className="space-y-2">
             {mockCommitFiles.map((file, idx) => (
               <div key={idx} className="bg-[#1e1e1e] rounded p-3">
-                <div className="text-[#cccccc] text-sm mb-2 truncate">{file.path}</div>
-                <ProgressStick active={file.active} idle={file.idle} total={file.active + file.idle} maxTotal={200} />
+                <div className="text-[#cccccc] text-sm mb-2 truncate">
+                  {file.path}
+                </div>
+                <ProgressStick
+                  active={file.active}
+                  idle={file.idle}
+                  total={file.active + file.idle}
+                  maxTotal={200}
+                />
                 <div className="flex items-center gap-4 mt-2 text-xs">
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-[#4ec9b0] rounded-sm" />

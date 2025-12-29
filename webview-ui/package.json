@@ -1,5 +1,5 @@
 {
-  "name": "Time Analytics Extension UI",
+  "name": "time-analytics-webview-ui",
   "version": "0.1.0",
   "private": true,
   "dependencies": {

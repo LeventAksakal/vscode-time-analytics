@@ -1,18 +1,38 @@
 import { useState } from 'react';
-import { Calendar, ChevronDown, ChevronRight, Search, List, TreePine, ArrowUpDown } from 'lucide-react';
+import {
+  Calendar,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  List,
+  TreePine,
+  ArrowUpDown,
+} from 'lucide-react';
 import { ProgressStick } from './ProgressStick';
 import { mockTreeData } from '../data/mockData';
 
 interface HomeProps {
-  onOpenDetail: (detail: { type: 'file' | 'commit' | 'author'; data: any }) => void;
+  onOpenDetail: (detail: {
+    type: 'file' | 'commit' | 'author';
+    data: any;
+  }) => void;
 }
 
 export function Home({ onOpenDetail }: HomeProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['repo-1']));
-  const [filters, setFilters] = useState({ repo: '', author: '', branch: '', file: '' });
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
+    new Set(['repo-1']),
+  );
+  const [filters, setFilters] = useState({
+    repo: '',
+    author: '',
+    branch: '',
+    file: '',
+  });
   const [viewMode, setViewMode] = useState<'tree' | 'list'>('tree');
-  const [sortBy, setSortBy] = useState<'time' | 'alphabetical' | 'commits'>('time');
+  const [sortBy, setSortBy] = useState<'time' | 'alphabetical' | 'commits'>(
+    'time',
+  );
 
   const toggleNode = (nodeId: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -44,7 +64,11 @@ export function Home({ onOpenDetail }: HomeProps) {
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {hasChildren && (
               <button className="text-[#cccccc]">
-                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                {isExpanded ? (
+                  <ChevronDown size={16} />
+                ) : (
+                  <ChevronRight size={16} />
+                )}
               </button>
             )}
             {!hasChildren && <span className="w-4" />}
@@ -62,7 +86,9 @@ export function Home({ onOpenDetail }: HomeProps) {
             />
           </div>
         </div>
-        {hasChildren && isExpanded && node.children.map((child: any) => renderTreeNode(child, depth + 1))}
+        {hasChildren &&
+          isExpanded &&
+          node.children.map((child: any) => renderTreeNode(child, depth + 1))}
       </div>
     );
   };
@@ -160,7 +186,9 @@ export function Home({ onOpenDetail }: HomeProps) {
           <button
             onClick={() => setViewMode(viewMode === 'tree' ? 'list' : 'tree')}
             className={`flex items-center gap-2 px-3 py-1 rounded transition-colors ${
-              viewMode === 'tree' ? 'bg-[#37373d] text-[#ffffff]' : 'text-[#cccccc] hover:bg-[#2a2d2e]'
+              viewMode === 'tree'
+                ? 'bg-[#37373d] text-[#ffffff]'
+                : 'text-[#cccccc] hover:bg-[#2a2d2e]'
             }`}
           >
             {viewMode === 'tree' ? <TreePine size={16} /> : <List size={16} />}
@@ -194,10 +222,14 @@ export function Home({ onOpenDetail }: HomeProps) {
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-[#cccccc] truncate">{file.name}</div>
-                  <div className="text-[#858585] text-sm truncate">{file.path}</div>
+                  <div className="text-[#858585] text-sm truncate">
+                    {file.path}
+                  </div>
                 </div>
                 {file.commits && (
-                  <span className="text-[#858585] text-sm">{file.commits} commits</span>
+                  <span className="text-[#858585] text-sm">
+                    {file.commits} commits
+                  </span>
                 )}
                 <div className="w-56">
                   <ProgressStick

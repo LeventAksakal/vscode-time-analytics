@@ -1,0 +1,93 @@
+{
+  "name": "vscode-time-analytics",
+  "displayName": "Time Analytics",
+  "description": "Track your coding time, idle time, and project statistics locally within VS Code.",
+  "version": "0.1.1",
+  "publisher": "leventaksakal56",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LeventAksakal/vscode-time-analytics"
+  },
+  "engines": {
+    "vscode": "^1.106.1"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "time tracking",
+    "analytics",
+    "productivity",
+    "statistics",
+    "wakatime"
+  ],
+  "activationEvents": [
+    "onView:time-analytics-sidebar",
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "icon": "assets/extensionIcon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "timeAnalytics.showFileStats",
+        "title": "Show File Time Stats",
+        "icon": "$(clock)"
+      },
+      {
+        "command": "timeAnalytics.refreshStats",
+        "title": "Refresh Stats",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "timeAnalytics.showFileStats",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "timeAnalytics.refreshStats",
+          "when": "view == time-analytics-sidebar",
+          "group": "navigation"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "time-analytics-container",
+          "title": "Time Analytics",
+          "icon": "assets/activityBarIcon.svg"
+        }
+      ]
+    },
+    "views": {
+      "time-analytics-container": [
+        {
+          "id": "time-analytics-sidebar",
+          "name": "Overview"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "deploy": "vsce publish --yarn"
+  },
+  "devDependencies": {
+    "@types/node": "22.x",
+    "@types/vscode": "^1.106.1",
+    "@vscode/vsce": "^3.7.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.103.0",
+    "webpack-cli": "^6.0.1"
+  }
+}

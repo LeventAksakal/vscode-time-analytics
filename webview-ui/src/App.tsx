@@ -9,7 +9,9 @@ import { CommitDetail } from './components/CommitDetail';
 import { AuthorDetail } from './components/AuthorDetail';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'queries' | 'stats' | 'settings'>('home');
+  const [activeTab, setActiveTab] = useState<
+    'home' | 'queries' | 'stats' | 'settings'
+  >('home');
   const [detailView, setDetailView] = useState<{
     type: 'file' | 'commit' | 'author' | null;
     data?: any;
@@ -22,11 +24,26 @@ export default function App() {
 
     switch (detailView.type) {
       case 'file':
-        return <FileDetail data={detailView.data} onClose={() => setDetailView({ type: null })} />;
+        return (
+          <FileDetail
+            data={detailView.data}
+            onClose={() => setDetailView({ type: null })}
+          />
+        );
       case 'commit':
-        return <CommitDetail data={detailView.data} onClose={() => setDetailView({ type: null })} />;
+        return (
+          <CommitDetail
+            data={detailView.data}
+            onClose={() => setDetailView({ type: null })}
+          />
+        );
       case 'author':
-        return <AuthorDetail data={detailView.data} onClose={() => setDetailView({ type: null })} />;
+        return (
+          <AuthorDetail
+            data={detailView.data}
+            onClose={() => setDetailView({ type: null })}
+          />
+        );
       default:
         return null;
     }
@@ -82,9 +99,15 @@ export default function App() {
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded ${isTracking ? 'bg-[#4ec9b0]/10' : 'bg-[#3c3c3c]'}`}>
-            <div className={`w-2 h-2 rounded-full ${isTracking ? 'bg-[#4ec9b0]' : 'bg-[#858585]'}`} />
-            <span className="text-sm">{isTracking ? 'Tracking' : 'Stopped'}</span>
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded ${isTracking ? 'bg-[#4ec9b0]/10' : 'bg-[#3c3c3c]'}`}
+          >
+            <div
+              className={`w-2 h-2 rounded-full ${isTracking ? 'bg-[#4ec9b0]' : 'bg-[#858585]'}`}
+            />
+            <span className="text-sm">
+              {isTracking ? 'Tracking' : 'Stopped'}
+            </span>
           </div>
           <button
             onClick={() => setIsTracking(!isTracking)}
@@ -106,9 +129,7 @@ export default function App() {
 
         {/* Right Panels */}
         <aside className="flex flex-col border-l border-[#2d2d2d]">
-          {showAlerts && (
-            <Alerts onClose={() => setShowAlerts(false)} />
-          )}
+          {showAlerts && <Alerts onClose={() => setShowAlerts(false)} />}
           {renderDetailPanel()}
         </aside>
       </div>

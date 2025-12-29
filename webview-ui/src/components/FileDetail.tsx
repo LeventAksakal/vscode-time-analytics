@@ -13,24 +13,46 @@ const mockDailyActivity = [
   { date: '12/22', active: 71, idle: 15 },
   { date: '12/23', active: 54, idle: 22 },
   { date: '12/24', active: 49, idle: 11 },
-  { date: '12/25', active: 58, idle: 14 }
+  { date: '12/25', active: 58, idle: 14 },
 ];
 
 const mockCommits = [
-  { hash: 'a3f7c2e', message: 'Add query filters', active: 42, idle: 8, date: '2025-12-25 14:30' },
-  { hash: '9d2e1f4', message: 'Update table layout', active: 28, idle: 6, date: '2025-12-25 11:15' },
-  { hash: 'c5a8b3d', message: 'Fix export bug', active: 35, idle: 5, date: '2025-12-24 16:45' }
+  {
+    hash: 'a3f7c2e',
+    message: 'Add query filters',
+    active: 42,
+    idle: 8,
+    date: '2025-12-25 14:30',
+  },
+  {
+    hash: '9d2e1f4',
+    message: 'Update table layout',
+    active: 28,
+    idle: 6,
+    date: '2025-12-25 11:15',
+  },
+  {
+    hash: 'c5a8b3d',
+    message: 'Fix export bug',
+    active: 35,
+    idle: 5,
+    date: '2025-12-24 16:45',
+  },
 ];
 
 export function FileDetail({ data, onClose }: FileDetailProps) {
-  const maxValue = Math.max(...mockDailyActivity.map(d => d.active + d.idle));
+  const maxValue = Math.max(...mockDailyActivity.map((d) => d.active + d.idle));
 
   return (
     <div className="w-96 bg-[#252526] border-l border-[#2d2d2d] flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#2d2d2d]">
         <div className="flex-1 min-w-0">
-          <div className="text-[#cccccc] truncate">{data?.name || 'File Detail'}</div>
-          <div className="text-[#858585] text-sm truncate">{data?.path || '/src/components/file.tsx'}</div>
+          <div className="text-[#cccccc] truncate">
+            {data?.name || 'File Detail'}
+          </div>
+          <div className="text-[#858585] text-sm truncate">
+            {data?.path || '/src/components/file.tsx'}
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -49,7 +71,10 @@ export function FileDetail({ data, onClose }: FileDetailProps) {
               const activeHeight = (day.active / maxValue) * 100;
               const idleHeight = (day.idle / maxValue) * 100;
               return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                <div
+                  key={idx}
+                  className="flex-1 flex flex-col items-center gap-1"
+                >
                   <div className="w-full flex flex-col-reverse gap-0.5">
                     <div
                       className="w-full bg-[#4ec9b0] rounded-t"
@@ -75,11 +100,20 @@ export function FileDetail({ data, onClose }: FileDetailProps) {
               <div key={commit.hash} className="bg-[#1e1e1e] rounded p-3">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
-                    <div className="text-[#cccccc] text-sm truncate mb-1">{commit.message}</div>
-                    <div className="text-[#858585] text-xs">{commit.hash} · {commit.date}</div>
+                    <div className="text-[#cccccc] text-sm truncate mb-1">
+                      {commit.message}
+                    </div>
+                    <div className="text-[#858585] text-xs">
+                      {commit.hash} · {commit.date}
+                    </div>
                   </div>
                 </div>
-                <ProgressStick active={commit.active} idle={commit.idle} total={commit.active + commit.idle} maxTotal={300} />
+                <ProgressStick
+                  active={commit.active}
+                  idle={commit.idle}
+                  total={commit.active + commit.idle}
+                  maxTotal={300}
+                />
                 <div className="flex items-center gap-4 mt-2 text-xs">
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-[#4ec9b0] rounded-sm" />

@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --vscode-bg: #1e1e1e;
@@ -21,7 +21,8 @@
 }
 
 body {
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', 'Consolas', monospace;
+  font-family:
+    'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', 'Consolas', monospace;
   background-color: var(--vscode-bg);
   color: var(--vscode-text);
   font-size: 13px;

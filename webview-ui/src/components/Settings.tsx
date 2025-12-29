@@ -4,11 +4,15 @@ import { Trash2 } from 'lucide-react';
 export function Settings() {
   const [settings, setSettings] = useState({
     idleThreshold: 300000, // 5 minutes in ms
-    autoStartTracking: true
+    autoStartTracking: true,
   });
 
   const handleClearTracking = () => {
-    if (confirm('Are you sure you want to clear all tracking data? This cannot be undone.')) {
+    if (
+      confirm(
+        'Are you sure you want to clear all tracking data? This cannot be undone.',
+      )
+    ) {
       console.log('Clearing tracking data...');
     }
   };
@@ -16,7 +20,9 @@ export function Settings() {
   return (
     <div className="h-full overflow-auto p-6 space-y-8">
       <div>
-        <h2 className="text-[#cccccc] mb-4 pb-2 border-b border-[#2d2d2d]">Tracking</h2>
+        <h2 className="text-[#cccccc] mb-4 pb-2 border-b border-[#2d2d2d]">
+          Tracking
+        </h2>
         <div className="space-y-4">
           <div>
             <label className="block text-[#cccccc] mb-2 text-sm">
@@ -25,7 +31,12 @@ export function Settings() {
             <input
               type="number"
               value={settings.idleThreshold}
-              onChange={(e) => setSettings({ ...settings, idleThreshold: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  idleThreshold: parseInt(e.target.value),
+                })
+              }
               step="1000"
               className="w-full bg-[#3c3c3c] border border-[#2d2d2d] rounded px-3 py-2 text-[#cccccc] focus:outline-none focus:border-[#007acc]"
             />
@@ -38,11 +49,18 @@ export function Settings() {
             <input
               type="checkbox"
               checked={settings.autoStartTracking}
-              onChange={(e) => setSettings({ ...settings, autoStartTracking: e.target.checked })}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  autoStartTracking: e.target.checked,
+                })
+              }
               className="mt-1 accent-[#007acc]"
             />
             <div>
-              <div className="text-[#cccccc] text-sm">Auto-start tracking on workspace open</div>
+              <div className="text-[#cccccc] text-sm">
+                Auto-start tracking on workspace open
+              </div>
               <div className="text-[#858585] text-sm">
                 Automatically begin tracking when you open a workspace
               </div>
@@ -52,7 +70,9 @@ export function Settings() {
       </div>
 
       <div>
-        <h2 className="text-[#cccccc] mb-4 pb-2 border-b border-[#2d2d2d]">Data Management</h2>
+        <h2 className="text-[#cccccc] mb-4 pb-2 border-b border-[#2d2d2d]">
+          Data Management
+        </h2>
         <div className="space-y-4">
           <div className="bg-[#252526] rounded p-4 space-y-2">
             <div className="flex justify-between text-sm">

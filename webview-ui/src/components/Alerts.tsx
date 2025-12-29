@@ -11,15 +11,15 @@ const mockAlerts = [
     title: 'Sign in with GitHub',
     message: 'Enable author tracking and commit attribution',
     action: 'Connect GitHub',
-    icon: 'github'
+    icon: 'github',
   },
   {
     id: 2,
     type: 'warning',
     title: '.gitignore Missing',
     message: 'Tracking data not ignored in repo "vscode-extension"',
-    action: 'Add to .gitignore'
-  }
+    action: 'Add to .gitignore',
+  },
 ];
 
 export function Alerts({ onClose }: AlertsProps) {
@@ -43,7 +43,10 @@ export function Alerts({ onClose }: AlertsProps) {
       </div>
       <div className="max-h-80 overflow-auto">
         {mockAlerts.map((alert) => (
-          <div key={alert.id} className="px-4 py-3 border-b border-[#2d2d2d] hover:bg-[#2a2d2e] transition-colors">
+          <div
+            key={alert.id}
+            className="px-4 py-3 border-b border-[#2d2d2d] hover:bg-[#2a2d2e] transition-colors"
+          >
             <div className="flex items-start gap-2 mb-2">
               {getIcon(alert)}
               <div className="flex-1 min-w-0">

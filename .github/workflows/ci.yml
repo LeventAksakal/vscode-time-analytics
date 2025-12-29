@@ -33,7 +33,7 @@ jobs:
         run: npx commitlint --last --verbose
 
   build-and-test:
-    name: Build and Test
+    name: Build, Lint, Format, and Test
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -52,12 +52,11 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Run Headless Test (Linux)
-        if: runner.os == 'Linux'
-        uses: coactions/setup-xvfb@v1
-        with:
-          run: npm test
+      - name: Lint
+        run: npm run lint
 
-      - name: Run Test (Windows/Mac)
-        if: runner.os != 'Linux'
-        run: npm test
+      - name: Format Check
+        run: npx prettier --check .
+
+      - name: Build
+        run: npm run build

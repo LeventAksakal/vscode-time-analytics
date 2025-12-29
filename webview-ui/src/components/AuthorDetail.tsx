@@ -10,18 +10,23 @@ const mockAuthorStats = {
   topFiles: [
     { path: 'src/components/Queries.tsx', active: 156, idle: 32, commits: 8 },
     { path: 'src/components/Home.tsx', active: 142, idle: 28, commits: 6 },
-    { path: 'src/components/ProgressStick.tsx', active: 98, idle: 18, commits: 5 },
-    { path: 'src/data/mockData.ts', active: 76, idle: 14, commits: 4 }
+    {
+      path: 'src/components/ProgressStick.tsx',
+      active: 98,
+      idle: 18,
+      commits: 5,
+    },
+    { path: 'src/data/mockData.ts', active: 76, idle: 14, commits: 4 },
   ],
   topRepos: [
     { name: 'vscode-extension', active: 432, idle: 86, commits: 24 },
-    { name: 'web-app', active: 278, idle: 52, commits: 16 }
+    { name: 'web-app', active: 278, idle: 52, commits: 16 },
   ],
   topBranches: [
     { name: 'feature/analytics', active: 312, idle: 64, commits: 18 },
     { name: 'main', active: 198, idle: 38, commits: 12 },
-    { name: 'feature/export', active: 142, idle: 28, commits: 8 }
-  ]
+    { name: 'feature/export', active: 142, idle: 28, commits: 8 },
+  ],
 };
 
 export function AuthorDetail({ data, onClose }: AuthorDetailProps) {
@@ -30,7 +35,9 @@ export function AuthorDetail({ data, onClose }: AuthorDetailProps) {
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#2d2d2d]">
         <div className="flex-1 min-w-0">
           <div className="text-[#cccccc] truncate">Author Detail</div>
-          <div className="text-[#858585] text-sm truncate">{data?.name || 'john.dev'}</div>
+          <div className="text-[#858585] text-sm truncate">
+            {data?.name || 'john.dev'}
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -48,14 +55,24 @@ export function AuthorDetail({ data, onClose }: AuthorDetailProps) {
             {mockAuthorStats.topFiles.map((file, idx) => (
               <div key={idx} className="bg-[#1e1e1e] rounded p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-[#cccccc] text-sm truncate flex-1">{file.path}</div>
-                  <div className="text-[#858585] text-xs ml-2">{file.commits} commits</div>
+                  <div className="text-[#cccccc] text-sm truncate flex-1">
+                    {file.path}
+                  </div>
+                  <div className="text-[#858585] text-xs ml-2">
+                    {file.commits} commits
+                  </div>
                 </div>
-                <ProgressStick active={file.active} idle={file.idle} total={file.active + file.idle} />
+                <ProgressStick
+                  active={file.active}
+                  idle={file.idle}
+                  total={file.active + file.idle}
+                />
                 <div className="flex items-center gap-4 mt-2 text-xs">
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-[#4ec9b0] rounded-sm" />
-                    <span className="text-[#858585]">{Math.floor(file.active / 60)}h {file.active % 60}m</span>
+                    <span className="text-[#858585]">
+                      {Math.floor(file.active / 60)}h {file.active % 60}m
+                    </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-[#dcdcaa] rounded-sm" />
@@ -75,17 +92,28 @@ export function AuthorDetail({ data, onClose }: AuthorDetailProps) {
               <div key={idx} className="bg-[#1e1e1e] rounded p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[#cccccc] text-sm">{repo.name}</div>
-                  <div className="text-[#858585] text-xs">{repo.commits} commits</div>
+                  <div className="text-[#858585] text-xs">
+                    {repo.commits} commits
+                  </div>
                 </div>
-                <ProgressStick active={repo.active} idle={repo.idle} total={repo.active + repo.idle} maxTotal={1200} />
+                <ProgressStick
+                  active={repo.active}
+                  idle={repo.idle}
+                  total={repo.active + repo.idle}
+                  maxTotal={1200}
+                />
                 <div className="flex items-center gap-4 mt-2 text-xs">
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-[#4ec9b0] rounded-sm" />
-                    <span className="text-[#858585]">{Math.floor(repo.active / 60)}h {repo.active % 60}m</span>
+                    <span className="text-[#858585]">
+                      {Math.floor(repo.active / 60)}h {repo.active % 60}m
+                    </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-[#dcdcaa] rounded-sm" />
-                    <span className="text-[#858585]">{Math.floor(repo.idle / 60)}h {repo.idle % 60}m</span>
+                    <span className="text-[#858585]">
+                      {Math.floor(repo.idle / 60)}h {repo.idle % 60}m
+                    </span>
                   </div>
                 </div>
               </div>
@@ -101,13 +129,22 @@ export function AuthorDetail({ data, onClose }: AuthorDetailProps) {
               <div key={idx} className="bg-[#1e1e1e] rounded p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-[#cccccc] text-sm">{branch.name}</div>
-                  <div className="text-[#858585] text-xs">{branch.commits} commits</div>
+                  <div className="text-[#858585] text-xs">
+                    {branch.commits} commits
+                  </div>
                 </div>
-                <ProgressStick active={branch.active} idle={branch.idle} total={branch.active + branch.idle} maxTotal={800} />
+                <ProgressStick
+                  active={branch.active}
+                  idle={branch.idle}
+                  total={branch.active + branch.idle}
+                  maxTotal={800}
+                />
                 <div className="flex items-center gap-4 mt-2 text-xs">
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-[#4ec9b0] rounded-sm" />
-                    <span className="text-[#858585]">{Math.floor(branch.active / 60)}h {branch.active % 60}m</span>
+                    <span className="text-[#858585]">
+                      {Math.floor(branch.active / 60)}h {branch.active % 60}m
+                    </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-[#dcdcaa] rounded-sm" />

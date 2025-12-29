@@ -1,8 +1,18 @@
 import { useState } from 'react';
-import { Calendar, TrendingUp, Clock, GitCommit, FileCode, Users } from 'lucide-react';
+import {
+  Calendar,
+  TrendingUp,
+  Clock,
+  GitCommit,
+  FileCode,
+  Users,
+} from 'lucide-react';
 
 export function Stats() {
-  const [dateRange, setDateRange] = useState({ start: '2025-12-01', end: '2025-12-25' });
+  const [dateRange, setDateRange] = useState({
+    start: '2025-12-01',
+    end: '2025-12-25',
+  });
 
   // Mock data for visualizations
   const dailyData = [
@@ -12,7 +22,7 @@ export function Stats() {
     { date: '12/22', idle: 91, active: 342 },
     { date: '12/23', idle: 74, active: 268 },
     { date: '12/24', idle: 69, active: 232 },
-    { date: '12/25', idle: 78, active: 342 }
+    { date: '12/25', idle: 78, active: 342 },
   ];
 
   const fileTypeData = [
@@ -20,15 +30,15 @@ export function Stats() {
     { type: '.ts', active: 892, idle: 198, percentage: 30 },
     { type: '.css', active: 324, idle: 86, percentage: 11 },
     { type: '.json', active: 189, idle: 52, percentage: 7 },
-    { type: 'other', active: 298, idle: 74, percentage: 10 }
+    { type: 'other', active: 298, idle: 74, percentage: 10 },
   ];
 
   const authorData = [
     { name: 'john.dev', active: 1842, idle: 428, commits: 48 },
-    { name: 'jane.dev', active: 1106, idle: 294, commits: 32 }
+    { name: 'jane.dev', active: 1106, idle: 294, commits: 32 },
   ];
 
-  const maxDailyTotal = Math.max(...dailyData.map(d => d.idle + d.active));
+  const maxDailyTotal = Math.max(...dailyData.map((d) => d.idle + d.active));
 
   const totalActive = dailyData.reduce((sum, d) => sum + d.active, 0);
   const totalIdle = dailyData.reduce((sum, d) => sum + d.idle, 0);
@@ -44,14 +54,18 @@ export function Stats() {
             <input
               type="date"
               value={dateRange.start}
-              onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+              onChange={(e) =>
+                setDateRange({ ...dateRange, start: e.target.value })
+              }
               className="bg-[#3c3c3c] border border-[#2d2d2d] rounded px-3 py-1.5 text-[#cccccc] focus:outline-none focus:border-[#007acc]"
             />
             <span className="text-[#858585]">to</span>
             <input
               type="date"
               value={dateRange.end}
-              onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+              onChange={(e) =>
+                setDateRange({ ...dateRange, end: e.target.value })
+              }
               className="bg-[#3c3c3c] border border-[#2d2d2d] rounded px-3 py-1.5 text-[#cccccc] focus:outline-none focus:border-[#007acc]"
             />
           </div>
@@ -69,7 +83,9 @@ export function Stats() {
               <Clock size={16} className="text-[#858585]" />
               <span className="text-[#858585] text-sm">Total Time</span>
             </div>
-            <div className="text-[#cccccc] text-2xl">{Math.floor(totalTime / 60)}h {totalTime % 60}m</div>
+            <div className="text-[#cccccc] text-2xl">
+              {Math.floor(totalTime / 60)}h {totalTime % 60}m
+            </div>
             <div className="text-[#4ec9b0] text-sm mt-1">Last 7 days</div>
           </div>
 
@@ -78,8 +94,12 @@ export function Stats() {
               <TrendingUp size={16} className="text-[#858585]" />
               <span className="text-[#858585] text-sm">Active Time</span>
             </div>
-            <div className="text-[#4ec9b0] text-2xl">{Math.floor(totalActive / 60)}h {totalActive % 60}m</div>
-            <div className="text-[#858585] text-sm mt-1">{Math.round((totalActive / totalTime) * 100)}% of total</div>
+            <div className="text-[#4ec9b0] text-2xl">
+              {Math.floor(totalActive / 60)}h {totalActive % 60}m
+            </div>
+            <div className="text-[#858585] text-sm mt-1">
+              {Math.round((totalActive / totalTime) * 100)}% of total
+            </div>
           </div>
 
           <div className="bg-[#252526] rounded-lg p-4 border border-[#2d2d2d]">
@@ -113,31 +133,34 @@ export function Stats() {
               // Color intensity based on duration
               const getIdleColor = (duration: number) => {
                 const intensity = Math.min(duration / 120, 1);
-                const lightness = 75 - (intensity * 25);
+                const lightness = 75 - intensity * 25;
                 return `hsl(48, 82%, ${lightness}%)`;
               };
 
               const getActiveColor = (duration: number) => {
                 const intensity = Math.min(duration / 120, 1);
-                const lightness = 75 - (intensity * 17);
+                const lightness = 75 - intensity * 17;
                 return `hsl(169, 54%, ${lightness}%)`;
               };
 
               return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative">
+                <div
+                  key={idx}
+                  className="flex-1 flex flex-col items-center gap-2 group relative"
+                >
                   <div className="w-full flex flex-col-reverse gap-1 h-full">
                     <div
                       className="w-full rounded-t transition-all cursor-pointer hover:opacity-80"
-                      style={{ 
+                      style={{
                         height: `${idleHeight}%`,
-                        backgroundColor: getIdleColor(day.idle)
+                        backgroundColor: getIdleColor(day.idle),
                       }}
                     />
                     <div
                       className="w-full rounded-t transition-all cursor-pointer hover:opacity-80"
-                      style={{ 
+                      style={{
                         height: `${activeHeight}%`,
-                        backgroundColor: getActiveColor(day.active)
+                        backgroundColor: getActiveColor(day.active),
                       }}
                     />
                   </div>
@@ -149,15 +172,21 @@ export function Stats() {
                       <div className="text-[#cccccc]">{day.date}</div>
                       <div className="flex items-center gap-2">
                         <span className="text-[#858585]">Idle:</span>
-                        <span className="text-[#cccccc]">{Math.floor(day.idle / 60)}h {day.idle % 60}m</span>
+                        <span className="text-[#cccccc]">
+                          {Math.floor(day.idle / 60)}h {day.idle % 60}m
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[#858585]">Active:</span>
-                        <span className="text-[#cccccc]">{Math.floor(day.active / 60)}h {day.active % 60}m</span>
+                        <span className="text-[#cccccc]">
+                          {Math.floor(day.active / 60)}h {day.active % 60}m
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[#858585]">Total:</span>
-                        <span className="text-[#cccccc]">{Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m</span>
+                        <span className="text-[#cccccc]">
+                          {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -167,11 +196,17 @@ export function Stats() {
           </div>
           <div className="flex items-center justify-center gap-6 mt-6 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: 'hsl(48, 82%, 62%)' }} />
+              <div
+                className="w-4 h-4 rounded"
+                style={{ backgroundColor: 'hsl(48, 82%, 62%)' }}
+              />
               <span className="text-[#858585]">Idle Time</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: 'hsl(169, 54%, 58%)' }} />
+              <div
+                className="w-4 h-4 rounded"
+                style={{ backgroundColor: 'hsl(169, 54%, 58%)' }}
+              />
               <span className="text-[#858585]">Active Time</span>
             </div>
           </div>
@@ -186,20 +221,27 @@ export function Stats() {
                 <div key={idx}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[#cccccc] text-sm">{file.type}</span>
-                    <span className="text-[#858585] text-sm">{file.percentage}%</span>
+                    <span className="text-[#858585] text-sm">
+                      {file.percentage}%
+                    </span>
                   </div>
                   <div className="h-2 bg-[#3c3c3c] rounded-sm overflow-hidden">
                     <div
                       className="h-full transition-all"
                       style={{
                         width: `${file.percentage}%`,
-                        background: `linear-gradient(to right, hsl(48, 82%, ${75 - (file.idle / 500) * 25}%), hsl(169, 54%, ${75 - (file.active / 2000) * 17}%))`
+                        background: `linear-gradient(to right, hsl(48, 82%, ${75 - (file.idle / 500) * 25}%), hsl(169, 54%, ${75 - (file.active / 2000) * 17}%))`,
                       }}
                     />
                   </div>
                   <div className="flex items-center gap-4 mt-1 text-xs">
-                    <span className="text-[#858585]">Idle: {Math.floor(file.idle / 60)}h {file.idle % 60}m</span>
-                    <span className="text-[#858585]">Active: {Math.floor(file.active / 60)}h {file.active % 60}m</span>
+                    <span className="text-[#858585]">
+                      Idle: {Math.floor(file.idle / 60)}h {file.idle % 60}m
+                    </span>
+                    <span className="text-[#858585]">
+                      Active: {Math.floor(file.active / 60)}h {file.active % 60}
+                      m
+                    </span>
                   </div>
                 </div>
               ))}
@@ -222,32 +264,39 @@ export function Stats() {
                   <div key={idx} className="bg-[#1e1e1e] rounded p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[#cccccc]">{author.name}</span>
-                      <span className="text-[#858585] text-sm">{author.commits} commits</span>
+                      <span className="text-[#858585] text-sm">
+                        {author.commits} commits
+                      </span>
                     </div>
                     <div className="h-3 bg-[#3c3c3c] rounded-sm overflow-hidden flex mb-2">
                       <div
                         className="transition-all"
                         style={{
                           width: `${idlePercent}%`,
-                          backgroundColor: `hsl(48, 82%, ${75 - (author.idle / 500) * 25}%)`
+                          backgroundColor: `hsl(48, 82%, ${75 - (author.idle / 500) * 25}%)`,
                         }}
                       />
                       <div
                         className="transition-all"
                         style={{
                           width: `${activePercent}%`,
-                          backgroundColor: `hsl(169, 54%, ${75 - (author.active / 2000) * 17}%)`
+                          backgroundColor: `hsl(169, 54%, ${75 - (author.active / 2000) * 17}%)`,
                         }}
                       />
                     </div>
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-2">
                         <span className="text-[#858585]">Idle:</span>
-                        <span className="text-[#cccccc]">{Math.floor(author.idle / 60)}h {author.idle % 60}m</span>
+                        <span className="text-[#cccccc]">
+                          {Math.floor(author.idle / 60)}h {author.idle % 60}m
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[#858585]">Active:</span>
-                        <span className="text-[#cccccc]">{Math.floor(author.active / 60)}h {author.active % 60}m</span>
+                        <span className="text-[#cccccc]">
+                          {Math.floor(author.active / 60)}h {author.active % 60}
+                          m
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -262,7 +311,9 @@ export function Stats() {
           <h3 className="text-[#cccccc] mb-4">Productivity Insights</h3>
           <div className="grid grid-cols-3 gap-6">
             <div>
-              <div className="text-[#858585] text-sm mb-2">Most Productive Day</div>
+              <div className="text-[#858585] text-sm mb-2">
+                Most Productive Day
+              </div>
               <div className="text-[#4ec9b0] text-xl">Thursday</div>
               <div className="text-[#858585] text-sm">Avg 6h 15m active</div>
             </div>
@@ -274,7 +325,9 @@ export function Stats() {
             <div>
               <div className="text-[#858585] text-sm mb-2">Avg Session</div>
               <div className="text-[#4ec9b0] text-xl">1h 24m</div>
-              <div className="text-[#858585] text-sm">Before idle threshold</div>
+              <div className="text-[#858585] text-sm">
+                Before idle threshold
+              </div>
             </div>
           </div>
         </div>
@@ -297,7 +350,11 @@ export function Stats() {
                       key={dayIdx}
                       className="w-3 h-3 rounded-sm transition-colors hover:ring-1 hover:ring-[#4ec9b0] cursor-pointer"
                       style={{ backgroundColor: color }}
-                      title={hasActivity ? `${Math.floor(intensity * 15)} commits` : 'No activity'}
+                      title={
+                        hasActivity
+                          ? `${Math.floor(intensity * 15)} commits`
+                          : 'No activity'
+                      }
                     />
                   );
                 })}
@@ -308,10 +365,22 @@ export function Stats() {
             <span>Less</span>
             <div className="flex gap-1">
               <div className="w-3 h-3 rounded-sm bg-[#2d2d2d]" />
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(169, 54%, 70%)' }} />
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(169, 54%, 58%)' }} />
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(169, 54%, 45%)' }} />
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(169, 54%, 32%)' }} />
+              <div
+                className="w-3 h-3 rounded-sm"
+                style={{ backgroundColor: 'hsl(169, 54%, 70%)' }}
+              />
+              <div
+                className="w-3 h-3 rounded-sm"
+                style={{ backgroundColor: 'hsl(169, 54%, 58%)' }}
+              />
+              <div
+                className="w-3 h-3 rounded-sm"
+                style={{ backgroundColor: 'hsl(169, 54%, 45%)' }}
+              />
+              <div
+                className="w-3 h-3 rounded-sm"
+                style={{ backgroundColor: 'hsl(169, 54%, 32%)' }}
+              />
             </div>
             <span>More</span>
           </div>
