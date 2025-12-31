@@ -6,6 +6,9 @@
     {
       "type": "npm",
       "script": "watch",
+      "options": {
+        "cwd": "${workspaceFolder}/extension"
+      },
       "problemMatcher": "$ts-webpack-watch",
       "isBackground": true,
       "presentation": {
@@ -20,6 +23,9 @@
     {
       "type": "npm",
       "script": "watch-tests",
+      "options": {
+        "cwd": "${workspaceFolder}/extension"
+      },
       "problemMatcher": "$tsc-watch",
       "isBackground": true,
       "presentation": {

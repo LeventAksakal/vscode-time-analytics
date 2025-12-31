@@ -3,19 +3,23 @@
   "private": true,
   "workspaces": [
     "extension",
-    "webview-ui"
+    "time-analytics-webview"
   ],
   "scripts": {
     "format": "prettier --write .",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint": "eslint extension/src time-analytics-webview/src --ext .ts,.tsx,.js,.jsx",
     "test": "echo \"No tests defined\"",
-    "build": "npm run compile --workspace=extension && npm run build --workspace=webview-ui",
-    "prepare": "husky"
+    "build": "npm run compile --workspace=extension && npm run build --workspace=time-analytics-webview && npm run copy-webview",
+    "build:extension": "npm run compile --workspace=extension",
+    "build:webview": "npm run build --workspace=time-analytics-webview && npm run copy-webview",
+    "copy-webview": "node extension/copy-webview.js",
+    "prepare": "husky",
+    "dev": "npm run dev --workspace=time-analytics-webview"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,md,yml}": "prettier --write",
     "extension/src/**/*.{ts,js}": "eslint --fix",
-    "webview-ui/src/**/*.{ts,tsx,js,jsx}": "eslint --fix"
+    "time-analytics-webview/src/**/*.{ts,tsx,js,jsx}": "eslint --fix"
   },
   "commitlint": {
     "extends": [

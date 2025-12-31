@@ -39,6 +39,11 @@
         "command": "timeAnalytics.refreshStats",
         "title": "Refresh Stats",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "timeAnalytics.openDashboard",
+        "title": "Open Analytics Dashboard",
+        "icon": "$(graph)"
       }
     ],
     "menus": {
@@ -51,6 +56,11 @@
       "view/title": [
         {
           "command": "timeAnalytics.refreshStats",
+          "when": "view == time-analytics-sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "timeAnalytics.openDashboard",
           "when": "view == time-analytics-sidebar",
           "group": "navigation"
         }

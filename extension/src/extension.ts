@@ -10,6 +10,7 @@ import { StatusBarProvider } from './ui/statusbar-timer';
 import { SidebarView } from './ui/sidebar-view';
 import { formatTime } from './utils/time-utils';
 import { AuthBadge } from './ui/auth-badge';
+import { AnalyticsDashboardProvider } from './ui/analytics-dashboard';
 
 export function activate(context: vscode.ExtensionContext) {
   const api = new TimeAnalyticsApi(context);
@@ -22,6 +23,11 @@ export function activate(context: vscode.ExtensionContext) {
   const statusBar = new StatusBarProvider();
   const authBadge = new AuthBadge(authTracker);
   const sidebarProvider = new SidebarView(api, bucketContext);
+  const dashboardProvider = new AnalyticsDashboardProvider(
+    context,
+    api,
+    bucketContext,
+  );
 
   void authTracker.promptIfSignedOut();
 
@@ -98,6 +104,13 @@ export function activate(context: vscode.ExtensionContext) {
     },
   );
 
+  const openDashboardCommand = vscode.commands.registerCommand(
+    'timeAnalytics.openDashboard',
+    () => {
+      dashboardProvider.openDashboard();
+    },
+  );
+
   context.subscriptions.push(documentTracker);
   context.subscriptions.push(typingTracker);
   context.subscriptions.push(statusBar);
@@ -108,6 +121,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(fileStatsCommand);
   context.subscriptions.push(refreshCommand);
   context.subscriptions.push(signInCommand);
+  context.subscriptions.push(openDashboardCommand);
 
   context.subscriptions.push(
     vscode.workspace.onDidRenameFiles(async (e) => {
