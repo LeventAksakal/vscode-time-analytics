@@ -82,6 +82,10 @@ export class TimeAnalyticsApi {
     return data.deleted;
   }
 
+  getWorkspaceState(uri: vscode.Uri): LatestFileFormat {
+    return this.readWorkspaceData(uri);
+  }
+
   public getDocumentStats(
     document: vscode.TextDocument,
   ): LatestBucketEntry | undefined {

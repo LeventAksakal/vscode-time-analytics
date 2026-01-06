@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { getWebviewContent } from '../utils/webview-content';
 import { TimeAnalyticsApi } from '../api/time-analytics-api';
 import { BucketContext } from '../core/bucket-context';
+import { BackendMessages, ClientMessages } from '../types/messages';
 
 export class AnalyticsDashboardProvider {
   public static readonly viewType = 'timeAnalyticsDashboard';
@@ -17,7 +19,7 @@ export class AnalyticsDashboardProvider {
     this.extensionUri = context.extensionUri;
   }
 
-  public openDashboard() {
+  public async openDashboard() {
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.One);
       return;
@@ -35,18 +37,26 @@ export class AnalyticsDashboardProvider {
       },
     );
 
-    this.panel.webview.html = this.getWebviewContent();
+    try {
+      this.panel.webview.html = await getWebviewContent(
+        this.panel.webview,
+        this.extensionUri,
+        'webview-ui/index.html',
+      );
+    } catch (e) {
+      console.error('[AnalyticsDashboard] Failed to load webview content', e);
+      this.panel.webview.html = `<h1>Error loading dashboard</h1><p>${e}</p>`;
+    }
 
-    // Handle messages from the webview
     this.panel.webview.onDidReceiveMessage(
-      async (message) => {
-        await this.handleMessage(message);
+      async (message: ClientMessages) => {
+        console.log('[Extension] Received message:', message);
+        await this.#handleMessage(message);
       },
       undefined,
       this.context.subscriptions,
     );
 
-    // Clean up when panel is closed
     this.panel.onDidDispose(
       () => {
         this.panel = undefined;
@@ -55,78 +65,69 @@ export class AnalyticsDashboardProvider {
       this.context.subscriptions,
     );
 
-    // Send initial data
-    this.sendInitialData();
+    this.#sendInitialData();
   }
 
-  private getWebviewContent(): string {
-    const webviewUri = this.panel!.webview;
-    const webviewPath = vscode.Uri.joinPath(this.extensionUri, 'webview-ui');
-
-    // Convert file paths to webview URIs
-    const indexHtml = vscode.Uri.joinPath(webviewPath, 'index.html');
-    const cssUri = webviewUri.asWebviewUri(
-      vscode.Uri.joinPath(webviewPath, 'assets', 'index-B25io0Jl.css'),
-    );
-    const jsUri = webviewUri.asWebviewUri(
-      vscode.Uri.joinPath(webviewPath, 'assets', 'index-YO2220ZM.js'),
-    );
-
-    // Read and modify the built HTML
-    const fs = require('fs');
-    let html = fs.readFileSync(indexHtml.fsPath, 'utf8');
-
-    // Replace asset paths with webview URIs
-    html = html.replace(/\/assets\/index-B25io0Jl\.css/g, cssUri.toString());
-    html = html.replace(/\/assets\/index-YO2220ZM\.js/g, jsUri.toString());
-
-    return html;
-  }
-
-  private async handleMessage(message: any) {
+  async #handleMessage(message: ClientMessages) {
     switch (message.type) {
+      case 'webviewBoot':
+        break;
       case 'requestInitialData':
-        await this.sendInitialData();
+        await this.#sendInitialData();
         break;
 
       case 'requestWorkspaceData':
-        await this.sendWorkspaceData();
+        await this.#sendWorkspaceData();
         break;
 
       case 'requestGlobalStats':
-        await this.sendGlobalStats();
+        await this.#sendGlobalStats();
         break;
 
       case 'refreshData':
         this.bucketContext.flushNow();
-        await this.sendInitialData();
+        await this.#sendInitialData();
         break;
 
-      default:
-        console.log('Unknown message type:', message.type);
+      case 'getUserStats':
+      case 'getFileStats':
+      case 'getInitialState':
+        console.log('Unimplemented');
+        break;
     }
   }
 
-  private async sendInitialData() {
+  #postMessage(message: BackendMessages) {
+    console.log('[Extension] Sending message:', message.type);
+    this.panel?.webview.postMessage(message);
+  }
+
+  async #sendInitialData() {
     if (!this.panel) return;
+
+    // Ensure any pending data is written to disk before reading
+    this.bucketContext.flushNow();
 
     try {
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders) {
-        this.panel.webview.postMessage({
-          type: 'initialData',
-          data: { error: 'No workspace folders found' },
+        // Case 3: No Workspace Open
+        // We cannot track project-specific stats, but we can show global stats.
+        const globalStats = this.api.getGlobalStats();
+        this.#postMessage({
+          type: 'globalStats',
+          stats: globalStats,
         });
         return;
       }
 
-      // Get data for the first workspace (you can extend this for multi-workspace)
+      // Case 1 & 2: Workspace Open
       const workspaceUri = workspaceFolders[0].uri;
       const projectTotals = this.api.getProjectTotals(workspaceUri);
       const buckets = this.api.getWorkspaceBuckets(workspaceUri);
       const globalStats = this.api.getGlobalStats();
 
-      this.panel.webview.postMessage({
+      this.#postMessage({
         type: 'initialData',
         data: {
           projectTotals,
@@ -136,16 +137,14 @@ export class AnalyticsDashboardProvider {
         },
       });
     } catch (error) {
-      this.panel.webview.postMessage({
-        type: 'initialData',
-        data: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-        },
+      this.#postMessage({
+        type: 'error',
+        reason: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
 
-  private async sendWorkspaceData() {
+  async #sendWorkspaceData() {
     if (!this.panel) return;
 
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -154,20 +153,20 @@ export class AnalyticsDashboardProvider {
     const workspaceUri = workspaceFolders[0].uri;
     const buckets = this.api.getWorkspaceBuckets(workspaceUri);
 
-    this.panel.webview.postMessage({
+    this.#postMessage({
       type: 'workspaceData',
       data: { buckets },
     });
   }
 
-  private async sendGlobalStats() {
+  async #sendGlobalStats() {
     if (!this.panel) return;
 
     const globalStats = this.api.getGlobalStats();
 
-    this.panel.webview.postMessage({
+    this.#postMessage({
       type: 'globalStats',
-      data: { globalStats },
+      stats: globalStats,
     });
   }
 }

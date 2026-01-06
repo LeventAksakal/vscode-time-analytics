@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "vscode-time-analytics-monorepo",
   "private": true,
   "workspaces": [
@@ -9,10 +10,10 @@
     "format": "prettier --write .",
     "lint": "eslint extension/src time-analytics-webview/src --ext .ts,.tsx,.js,.jsx",
     "test": "echo \"No tests defined\"",
-    "build": "npm run compile --workspace=extension && npm run build --workspace=time-analytics-webview && npm run copy-webview",
+    "build": "npm run build --workspace=time-analytics-webview && npm run copy-webview && npm run compile --workspace=extension ",
     "build:extension": "npm run compile --workspace=extension",
-    "build:webview": "npm run build --workspace=time-analytics-webview && npm run copy-webview",
-    "copy-webview": "node extension/copy-webview.js",
+    "build:webview": "npm run build --workspace=time-analytics-webview ",
+    "copy-webview": "node scripts/copy-webview.ts",
     "prepare": "husky",
     "dev": "npm run dev --workspace=time-analytics-webview"
   },
@@ -32,6 +33,7 @@
     "eslint": "^9.39.2",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "prettier": "^3.7.4"
+    "prettier": "^3.7.4",
+    "typescript-eslint": "^8.52.0"
   }
 }
