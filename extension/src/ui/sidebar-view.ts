@@ -41,12 +41,12 @@ class FileTreeItem extends vscode.TreeItem {
   }
 }
 
-export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
+export class SidebarView implements vscode.TreeDataProvider<vscode.TreeItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<
-    FileTreeItem | undefined | null | void
-  > = new vscode.EventEmitter<FileTreeItem | undefined | null | void>();
+    vscode.TreeItem | undefined | null | void
+  > = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
   readonly onDidChangeTreeData: vscode.Event<
-    FileTreeItem | undefined | null | void
+    vscode.TreeItem | undefined | null | void
   > = this._onDidChangeTreeData.event;
 
   private refreshInterval: NodeJS.Timeout | undefined;
@@ -61,7 +61,7 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
     this._onDidChangeTreeData.fire();
   }
 
-  bindView(view: vscode.TreeView<FileTreeItem>) {
+  bindView(view: vscode.TreeView<vscode.TreeItem>) {
     view.onDidChangeVisibility((e) => {
       if (e.visible) {
         this.refresh();
@@ -89,13 +89,28 @@ export class SidebarView implements vscode.TreeDataProvider<FileTreeItem> {
     }
   }
 
-  getTreeItem(element: FileTreeItem): vscode.TreeItem {
+  getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
     return element;
   }
 
-  getChildren(element?: FileTreeItem): Thenable<FileTreeItem[]> {
+  getChildren(element?: FileTreeItem): Thenable<vscode.TreeItem[]> {
     if (!element) {
-      const items: FileTreeItem[] = [];
+      const items: vscode.TreeItem[] = [];
+
+      // 0. Dashboard Button
+      const dashboardItem = new vscode.TreeItem(
+        'Open Dashboard',
+        vscode.TreeItemCollapsibleState.None,
+      );
+      dashboardItem.contextValue = 'dashboardButton';
+      dashboardItem.iconPath = new vscode.ThemeIcon('graph');
+      dashboardItem.command = {
+        command: 'timeAnalytics.openDashboard',
+        title: 'Open Dashboard',
+      };
+      // Make it look primary-ish (using description or just being top)
+      dashboardItem.description = 'Analyze your time';
+      items.push(dashboardItem);
 
       const globalStats = this.api.getGlobalStats();
       const totalGlobalActive = globalStats.active;

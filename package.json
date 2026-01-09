@@ -35,5 +35,9 @@
     "lint-staged": "^16.2.7",
     "prettier": "^3.7.4",
     "typescript-eslint": "^8.52.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "vue-chartjs": "^5.3.3"
   }
 }

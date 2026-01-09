@@ -1,113 +1,145 @@
 <script setup lang="ts">
-import DailySummary from '@/components/DailySummary.vue';
-import FilesView from '@/components/FilesView.vue';
-import SettingsView from '@/components/SettingsView.vue';
+import { ref, computed } from 'vue';
 import { useAnalyticsStore } from '@/stores/analytics';
-import { computed, ref } from 'vue';
+import TimelineTab from '@/components/TimelineTab.vue';
+import SearchTab from '@/components/SearchTab.vue';
+import SettingsTab from '@/components/SettingsTab.vue';
 
 const store = useAnalyticsStore();
-const currentTab = ref('summary');
 
-const workspaceName = computed(() => {
-    // In a real app, we might get this from the extension
-    // For now, we can just show a generic title or nothing
-    return 'Workspace Analytics';
-});
+type TabId = 'timeline' | 'search' | 'settings';
+
+const currentTab = ref<TabId>('timeline');
 
 const tabs = [
-    { id: 'summary', label: 'Daily Summary' },
-    { id: 'files', label: 'Files' },
-    { id: 'settings', label: 'Settings' }
+    { id: 'timeline' as const, label: 'Dashboard', component: TimelineTab },
+    { id: 'search' as const, label: 'Search', component: SearchTab },
+    { id: 'settings' as const, label: 'Settings', component: SettingsTab },
 ];
+
+const activeComponent = computed(() => {
+    return tabs.find(t => t.id === currentTab.value)?.component;
+});
 </script>
 
 <template>
-    <div class="app-container">
-        <header class="app-header">
-            <h1>{{ workspaceName }}</h1>
-            <div class="meta-info">
-                <span v-if="store.loading">Loading...</span>
-                <span v-else>Last updated: {{ new Date().toLocaleTimeString() }}</span>
+    <div class="page-container">
+        <header class="navbar">
+            <div class="workspace-section" v-if="store.workspaceName">
+                <div class="workspace-pill">
+                    <span class="icon">📂</span>
+                    <span class="name">{{ store.workspaceName }}</span>
+                </div>
             </div>
+
+            <div class="divider"></div>
+
+            <nav class="tab-list" role="tablist">
+                <button v-for="tab in tabs" :key="tab.id" role="tab" class="tab-btn"
+                    :class="{ active: currentTab === tab.id }" :aria-selected="currentTab === tab.id"
+                    @click="currentTab = tab.id">
+                    {{ tab.label }}
+                </button>
+            </nav>
         </header>
 
-        <nav class="app-nav">
-            <button v-for="tab in tabs" :key="tab.id" :class="['nav-tab', { active: currentTab === tab.id }]"
-                @click="currentTab = tab.id">
-                {{ tab.label }}
-            </button>
-        </nav>
-
-        <main class="app-content">
-            <DailySummary v-if="currentTab === 'summary'" />
-            <FilesView v-else-if="currentTab === 'files'" />
-            <SettingsView v-else-if="currentTab === 'settings'" />
+        <main class="content-area">
+            <KeepAlive>
+                <component :is="activeComponent" />
+            </KeepAlive>
         </main>
     </div>
 </template>
 
 <style scoped>
-.app-container {
+.page-container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    max-width: 100%;
-    overflow: hidden;
+    height: 100%;
+    background-color: var(--vscode-editor-background);
 }
 
-.app-header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--vscode-widget-border);
+.navbar {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
     align-items: center;
-    background: var(--vscode-editor-background);
-}
-
-.app-header h1 {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: normal;
-    color: var(--vscode-foreground);
-}
-
-.meta-info {
-    font-size: 0.8rem;
-    color: var(--vscode-descriptionForeground);
-}
-
-.app-nav {
-    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--vscode-editor-background);
     padding: 0 1rem;
-    background: var(--vscode-editor-background);
-    border-bottom: 1px solid var(--vscode-widget-border);
+    height: 50px;
+    flex-shrink: 0;
 }
 
-.nav-tab {
+.workspace-section {
+    display: flex;
+    align-items: center;
+    padding-right: 1.5rem;
+}
+
+.workspace-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text-primary);
+    max-width: 250px;
+}
+
+.workspace-pill .name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background-color: var(--border-color);
+    margin-right: 1.5rem;
+}
+
+.tab-list {
+    display: flex;
+    gap: 1.5rem;
+    height: 100%;
+}
+
+.tab-btn {
     background: none;
     border: none;
-    padding: 0.8rem 1rem;
-    color: var(--vscode-foreground);
+    padding: 0 0.5rem;
+    color: var(--text-muted);
+    font-size: 1.1em;
+    /* Larger font size */
+    font-weight: 500;
+    /* More weight */
     cursor: pointer;
-    border-bottom: 2px solid transparent;
-    opacity: 0.7;
+    position: relative;
     transition: all 0.2s;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid transparent;
 }
 
-.nav-tab:hover {
-    opacity: 1;
-    background: var(--vscode-toolbar-hoverBackground);
+.tab-btn:hover {
+    color: var(--text-primary);
+    background-color: transparent;
 }
 
-.nav-tab.active {
-    opacity: 1;
-    border-bottom-color: var(--vscode-activityBar-activeBorder);
-    font-weight: bold;
+.tab-btn.active {
+    color: var(--text-primary);
+    font-weight: 700;
+    /* Even bolder for active state */
+    border-bottom-color: var(--focus-border);
 }
 
-.app-content {
+.content-area {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem;
+    padding-top: 1.5rem;
+    /* Additional spacing from navbar */
+    position: relative;
 }
 </style>

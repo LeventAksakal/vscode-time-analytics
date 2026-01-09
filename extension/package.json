@@ -52,18 +52,6 @@
           "command": "timeAnalytics.showFileStats",
           "group": "navigation"
         }
-      ],
-      "view/title": [
-        {
-          "command": "timeAnalytics.refreshStats",
-          "when": "view == time-analytics-sidebar",
-          "group": "navigation"
-        },
-        {
-          "command": "timeAnalytics.openDashboard",
-          "when": "view == time-analytics-sidebar",
-          "group": "navigation"
-        }
       ]
     },
     "viewsContainers": {

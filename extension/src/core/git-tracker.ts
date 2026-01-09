@@ -11,7 +11,13 @@ export class GitTracker implements vscode.Disposable {
   private branches = new Map<string, string>();
 
   constructor(private readonly buckets: BucketContext) {
-    this.init();
+    this.initPromise = this.init();
+  }
+
+  private initPromise: Promise<void>;
+
+  async waitForInitialSync() {
+    return this.initPromise;
   }
 
   private async init() {

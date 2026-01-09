@@ -1,6 +1,7 @@
 import type { BackendMessages, ClientMessages } from './types/messages';
 import type { WebviewApi } from './types/vscode-webview-api';
 import { useAnalyticsStore } from './stores/analytics';
+import { mockInitialData } from './mocks/mock-data';
 
 interface WebviewState {
   route?: string;
@@ -19,8 +20,23 @@ interface WebviewState {
   lastOpenedFile?: string;
 }
 
+// Mock implementation for browser environment
+const mockVsCodeApi: WebviewApi<WebviewState> = {
+  postMessage: (msg: unknown) => console.log('[MockVsCode] To Backend:', msg),
+  getState: () => ({}),
+  setState: (state: any) => state,
+};
+
+function getVsCodeApi(): WebviewApi<WebviewState> {
+  if (typeof acquireVsCodeApi === 'function') {
+    return acquireVsCodeApi<WebviewState>();
+  }
+  return mockVsCodeApi;
+}
+
 class WebviewClient implements WebviewApi<WebviewState> {
-  #vscode = acquireVsCodeApi<WebviewState>();
+  #vscode = getVsCodeApi();
+  #isDev = typeof acquireVsCodeApi !== 'function';
 
   #onMessage = (event: MessageEvent) => {
     const message = event.data as BackendMessages;
@@ -35,6 +51,15 @@ class WebviewClient implements WebviewApi<WebviewState> {
     // Notify backend that we are ready
     this.postMessage({ type: 'webviewBoot' });
     this.postMessage({ type: 'requestInitialData' });
+
+    // If dev env, simulate initial data being received
+    if (this.#isDev) {
+      console.log('[Webview] Dev mode detected, loading mock data...');
+      setTimeout(() => {
+        const store = useAnalyticsStore();
+        store.handleMessage({ type: 'initialData', data: mockInitialData });
+      }, 100);
+    }
   }
 
   postMessage(message: ClientMessages): void {

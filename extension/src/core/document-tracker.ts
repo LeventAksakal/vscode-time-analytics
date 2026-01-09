@@ -5,7 +5,12 @@ export class DocumentTracker implements vscode.Disposable {
   private disposables: vscode.Disposable[] = [];
 
   constructor(private readonly buckets: BucketContext) {
+    // Moved listener registration to start() to allow waiting for Auth/Git
+  }
+
+  start() {
     this.registerListeners();
+    // Catch-up if editor was already open
     this.captureVisibleEditors(vscode.window.visibleTextEditors);
   }
 

@@ -8,7 +8,11 @@ export type ClientMessages =
   | { type: 'requestInitialData' }
   | { type: 'requestWorkspaceData' }
   | { type: 'requestGlobalStats' }
-  | { type: 'refreshData' };
+  | { type: 'refreshData' }
+  | { type: 'updateConfig'; config: { key: string; value: any } }
+  | { type: 'addToGitignore' }
+  | { type: 'exportData' }
+  | { type: 'clearData' };
 
 export interface InitialData {
   projectTotals: { active: number; idle: number };

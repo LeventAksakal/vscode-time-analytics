@@ -19,44 +19,42 @@
 
 ## 3. View Specifications
 
-### 3.1. Daily View (Default)
+### 3.1. Dashboard View (Default)
 
-**Header**: Date Picker (Today default).
-**Hero Cards**:
+**Controls**: Date Range Picker + Presets `[Daily | Weekly | Monthly]`.
 
-1. **Active Time** (`var(--vscode-charts-blue)`).
-2. **Idle Time** (`var(--vscode-charts-orange)`).
-3. **Impact** (Files Touched).
-   **Visualizations**:
+**Layout Grid**:
 
-- **Language**: Donut chart (Top 5 langs). Interactable legend.
-- **Heatmap**: Punch card / Hourly bars (00:00-23:59) showing intensity.
-  **File List**:
-- Cols: Path (trunc), Branch, **Ratio Bar**, Text Values.
-- **Ratio Bar**: Horizontal bar. `Active%` (Green/Blue) + `Idle%` (Yellow/Orange).
-- Sort: Descending by Active Time. Empty State: "No activity for [Date]".
+1. **Summary Row**:
+   - Active Time (Card).
+   - Idle Time (Card).
+   - Files Touched (Card).
 
-### 3.2. Timeline View
+2. **Charts Row**:
+   - **Left**: Language Distribution (Donut chart + Legend).
+   - **Right**: Timeline Activity (Column chart: Time vs Duration).
 
-**Controls**: Segmented `[7 Days | 30 Days | 12 Months]`.
-**Chart**: Vertical Bar Chart.
+3. **File Activity Row**:
+   - Table listing files.
+   - Columns: Path | Branch | **Activity Ratio** | Duration.
+   - **Activity Ratio**: Horizontal bar showing Active (Blue) vs Idle (Orange) proportions.
 
-- X in Days/Months. Y in Duration (Stacked Active + Idle).
-- Hover: Tooltip with `StatSummary`.
-  **Aggregation**: Summary footer for selected range (Total Active/Idle, Avg/Day).
+### 3.2. Search View [Implemented]
 
-### 3.3. Search View
+**Inputs**:
 
-**Inputs**: Text query (path). Filters: Author, Date Range, Commit Hash, Branch.
-**Results**:
+- File Path (Fuzzy match)
+- Filters: Author, Date Range, Branch.
+  **Results**:
+- "Found X matching files..."
+- Filtered `FileActivityTable` listing results.
 
-- "Found X files...".
 - Global `StatSummary` for matches.
 - Virtualized list of matching files.
 
 ### 3.4. Settings View
 
-**Global Stats**: Lifetime Active Time (all workspaces), Language Pie Chart.
+**Global Stats**: Lifetime Active Time, Lifetime Idle Time.
 **Config**:
 
 - Toggles: "Auto-track", "Repo Tracking".

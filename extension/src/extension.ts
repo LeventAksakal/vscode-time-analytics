@@ -31,6 +31,20 @@ export function activate(context: vscode.ExtensionContext) {
 
   void authTracker.promptIfSignedOut();
 
+  // Wait for initial context (Auth/Git) before tracking to prevent fragmented buckets
+  (async () => {
+    try {
+      await Promise.all([
+        authTracker.waitForInitialAuth(),
+        gitTracker.waitForInitialSync(),
+      ]);
+    } catch (err) {
+      console.warn('[time-analytics] Failed waiting for initial context:', err);
+    } finally {
+      documentTracker.start();
+    }
+  })();
+
   vscode.workspace.workspaceFolders?.forEach((folder) =>
     api.setupTimeAnalytics(folder.uri),
   );

@@ -32,6 +32,11 @@ export class AuthTracker implements vscode.Disposable {
     this.lastRefresh = this.refreshSession(true);
   }
 
+  // Allow extension to wait for first attempt
+  async waitForInitialAuth() {
+    return this.lastRefresh;
+  }
+
   getUser(): AuthUser | null {
     return this.currentUser;
   }
